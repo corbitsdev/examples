@@ -1,0 +1,27 @@
+{
+  "name": "@corbits/example-agent-quickstart",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "start": "bun run src/cli.ts"
+  },
+  "dependencies": {
+    "@intx/agent": "0.1.2"
+  },
+  "overrides": {
+    "@intx/inference": "0.1.2",
+    "@intx/types": "0.1.2",
+    "@intx/storage-isogit": "0.1.2",
+    "@intx/mime": "0.1.2",
+    "@intx/log": "0.1.2",
+    "@intx/crypto-node": "0.1.2"
+  }
+}
