@@ -4,7 +4,8 @@ The smallest runnable `@intx/workflow` program. Define two agents, wire
 them into a two-step `draft -> review` workflow, run it, print the
 outputs. The workflow analog of [`agent-quickstart`](../agent-quickstart).
 
-Read [`src/cli.ts`](./src/cli.ts) and you have it.
+The workflow lives in [`src/workflow.ts`](./src/workflow.ts) — read that
+first. [`src/cli.ts`](./src/cli.ts) is just the entry point.
 
 ## What it shows
 
@@ -41,10 +42,19 @@ bun run start "the rings of Saturn"
 ```
 
 ```
-status: completed
+workflow workflow-quickstart · anthropic/claude-sonnet-4-6
+  → step draft (agent draft) running…
+  ✓ step draft done (312 chars)
+  → step review (agent review) running…
+  ✓ step review done (88 chars)
+workflow workflow-quickstart · completed
+
 draft:  <a paragraph about the rings of Saturn>
 review: <one sharper sentence>
 ```
+
+Step progress is written to stderr; the `draft:` / `review:` results go
+to stdout.
 
 ## Providers
 
