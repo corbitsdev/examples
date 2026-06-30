@@ -3,6 +3,9 @@
   "private": true,
   "workspaces": [
     "interchange/packages/*",
+    "starter/slack-bridge",
+    "starter/slack-agent",
+    "starter/slack-workflow",
     "starter/workflow-approval-flow",
     "starter/workflow-quickstart"
   ],
