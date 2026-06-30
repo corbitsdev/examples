@@ -3,6 +3,7 @@
   "private": true,
   "workspaces": [
     "interchange/packages/*",
+    "starter/workflow-approval-flow",
     "starter/workflow-quickstart"
   ],
   "catalog": {
