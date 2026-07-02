@@ -1,8 +1,8 @@
-// Slack adapter for workflow-approval-flow.
+// Slack approval-flow example.
 
 import { startSlackBridge } from "@corbits/example-slack-bridge";
 
-import { createSlackWorkflowAdapter } from "./adapter";
+import { createApprovalWorkflowAdapter } from "./adapter";
 import { resolveConfig, SERVICE_NAME } from "./config";
 
 export type MainOptions = {
@@ -26,7 +26,7 @@ export async function main(
       [
         "usage: bun run start",
         "",
-        "Start the Slack Block Kit adapter for workflow-approval-flow.",
+        "Start the Slack approval-flow example.",
         "",
       ].join("\n"),
     );
@@ -39,7 +39,7 @@ export async function main(
     return 1;
   }
 
-  const adapter = createSlackWorkflowAdapter({
+  const adapter = createApprovalWorkflowAdapter({
     config: resolved.config,
     stderr,
   });

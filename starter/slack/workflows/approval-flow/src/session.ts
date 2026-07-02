@@ -7,8 +7,12 @@ import {
   defineApprovalFlow,
 } from "@corbits/example-workflow-approval-flow";
 import {
+  createSlackThreadSessionStore,
   postMessage,
+  safePathSegment,
+  slackThreadKey,
   truncateForSlack,
+  type SlackThreadRef,
   type Write,
 } from "@corbits/example-slack-bridge";
 import {
@@ -32,8 +36,7 @@ import { SERVICE_NAME, type SlackWorkflowConfig } from "./config";
 
 type PendingApproval = {
   key: string;
-  channel: string;
-  threadTs: string;
+  thread: SlackThreadRef;
   run: WorkflowRun;
   status: "drafting" | "awaiting-approval" | "resuming" | "finished";
 };
@@ -54,7 +57,9 @@ export function createApprovalSessions(opts: {
   stderr: Write;
 }): ApprovalSessions {
   const { config, stderr } = opts;
-  const pendingByThread = new Map<string, PendingApproval>();
+  const pendingByThread = createSlackThreadSessionStore<PendingApproval>(
+    (pending) => pending.status !== "finished",
+  );
 
   async function start(input: {
     teamId: string | undefined;
@@ -62,9 +67,14 @@ export function createApprovalSessions(opts: {
     threadTs: string;
     prompt: string;
   }): Promise<void> {
-    const key = threadKey(input.teamId, input.channel, input.threadTs);
-    const existing = pendingByThread.get(key);
-    if (existing !== undefined && existing.status !== "finished") {
+    const thread = {
+      teamId: input.teamId,
+      channel: input.channel,
+      threadTs: input.threadTs,
+    };
+    const key = slackThreadKey(thread);
+    const existing = pendingByThread.getActive(key);
+    if (existing !== undefined) {
       await postMessage(config.botToken, {
         channel: input.channel,
         thread_ts: input.threadTs,
@@ -96,16 +106,15 @@ export function createApprovalSessions(opts: {
 
     const pending: PendingApproval = {
       key,
-      channel: input.channel,
-      threadTs: input.threadTs,
+      thread,
       run,
       status: "drafting",
     };
     pendingByThread.set(key, pending);
 
     await postMessage(config.botToken, {
-      channel: pending.channel,
-      thread_ts: pending.threadTs,
+      channel: pending.thread.channel,
+      thread_ts: pending.thread.threadTs,
       text: `Started approval workflow ${run.runId}. Drafting now...`,
       blocks: startedBlocks(run.runId),
     });
@@ -129,12 +138,12 @@ export function createApprovalSessions(opts: {
     await pending.run.signal(APPROVAL_SIGNAL, {
       approvedBy: userId ?? "slack-user",
       approvedAt: new Date().toISOString(),
-      channel: pending.channel,
-      threadTs: pending.threadTs,
+      channel: pending.thread.channel,
+      threadTs: pending.thread.threadTs,
     });
     await postMessage(config.botToken, {
-      channel: pending.channel,
-      thread_ts: pending.threadTs,
+      channel: pending.thread.channel,
+      thread_ts: pending.thread.threadTs,
       text: "Approved. Publishing now...",
       blocks: approvedBlocks(),
     });
@@ -151,8 +160,8 @@ export function createApprovalSessions(opts: {
     pending.status = "resuming";
     await pending.run.cancel("supervisor-operator", "rejected from Slack");
     await postMessage(config.botToken, {
-      channel: pending.channel,
-      thread_ts: pending.threadTs,
+      channel: pending.thread.channel,
+      thread_ts: pending.thread.threadTs,
       text: "Rejected. Workflow cancelled.",
       blocks: rejectedBlocks(),
     });
@@ -172,8 +181,8 @@ export function createApprovalSessions(opts: {
 
       pending.status = "awaiting-approval";
       await postMessage(config.botToken, {
-        channel: pending.channel,
-        thread_ts: pending.threadTs,
+        channel: pending.thread.channel,
+        thread_ts: pending.thread.threadTs,
         text: truncateForSlack(
           `Draft ready for approval:\n\n${draft}\n\nApprove or reject in Slack.`,
         ),
@@ -198,8 +207,8 @@ export function createApprovalSessions(opts: {
           result.outputs.publish ?? outputs.get("publish") ?? "",
         );
         await postMessage(config.botToken, {
-          channel: pending.channel,
-          thread_ts: pending.threadTs,
+          channel: pending.thread.channel,
+          thread_ts: pending.thread.threadTs,
           text: truncateForSlack(`Published:\n\n${published}`),
           blocks: publishedBlocks(published),
         });
@@ -207,8 +216,8 @@ export function createApprovalSessions(opts: {
       }
 
       await postMessage(config.botToken, {
-        channel: pending.channel,
-        thread_ts: pending.threadTs,
+        channel: pending.thread.channel,
+        thread_ts: pending.thread.threadTs,
         text: `Approval workflow ended with status ${result.terminalStatus}.`,
         blocks: terminalStatusBlocks(result.terminalStatus),
       });
@@ -218,8 +227,8 @@ export function createApprovalSessions(opts: {
       pending.status = "finished";
       pendingByThread.delete(pending.key);
       await postMessage(config.botToken, {
-        channel: pending.channel,
-        thread_ts: pending.threadTs,
+        channel: pending.thread.channel,
+        thread_ts: pending.thread.threadTs,
         text: truncateForSlack(`Approval workflow failed: ${message}`),
         blocks: failedBlocks(message),
       }).catch(() => undefined);
@@ -228,8 +237,8 @@ export function createApprovalSessions(opts: {
 
   async function postNotReady(pending: PendingApproval): Promise<void> {
     await postMessage(config.botToken, {
-      channel: pending.channel,
-      thread_ts: pending.threadTs,
+      channel: pending.thread.channel,
+      thread_ts: pending.thread.threadTs,
       text: "The workflow is not waiting for approval yet.",
       blocks: notReadyBlocks(),
     });
@@ -260,18 +269,6 @@ function createSlackAuthorize(): WorkflowAuthorizeFn {
       specificity: 100,
     },
   });
-}
-
-function threadKey(
-  teamId: string | undefined,
-  channel: string,
-  threadTs: string,
-): string {
-  return [teamId ?? "unknown-team", channel, threadTs].join("-");
-}
-
-function safePathSegment(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_.-]+/g, "_").slice(0, 180);
 }
 
 function deferred<T>(): {

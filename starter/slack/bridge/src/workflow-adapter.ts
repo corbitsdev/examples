@@ -1,14 +1,20 @@
-import {
-  cleanSlackText,
-  type SlackBlockAction,
-  type SlackAssistantMessage,
-  type SlackEvent,
-  type Write,
-} from "@corbits/example-slack-bridge";
+import type {
+  SlackAssistantMessage,
+  SlackBlockAction,
+  SlackEvent,
+} from "./events";
+import { cleanSlackText } from "./messages";
 
-import { APPROVE_ACTION_ID, REJECT_ACTION_ID } from "./blocks";
-import type { SlackWorkflowConfig } from "./config";
-import { createApprovalSessions } from "./session";
+export type SlackWorkflowStartInput = {
+  teamId: string | undefined;
+  channel: string;
+  threadTs: string;
+  prompt: string;
+};
+
+export type SlackWorkflowActionHandler = (
+  action: SlackBlockAction & { value: string },
+) => void | Promise<void>;
 
 export type SlackWorkflowAdapter = {
   onEvent: (teamId: string | undefined, event: SlackEvent) => Promise<void>;
@@ -17,14 +23,15 @@ export type SlackWorkflowAdapter = {
 };
 
 export function createSlackWorkflowAdapter(opts: {
-  config: SlackWorkflowConfig;
-  stderr: Write;
+  onStart: (input: SlackWorkflowStartInput) => void | Promise<void>;
+  actionHandlers: Record<string, SlackWorkflowActionHandler>;
+  shouldStartEvent?: (event: SlackEvent) => boolean;
 }): SlackWorkflowAdapter {
-  const sessions = createApprovalSessions(opts);
+  const shouldStartEvent = opts.shouldStartEvent ?? isDefaultStartEvent;
 
   return {
     async onEvent(teamId, event) {
-      if (!isStartEvent(event)) return;
+      if (!shouldStartEvent(event)) return;
 
       const channel = event.channel;
       const threadTs = event.thread_ts ?? event.ts;
@@ -33,22 +40,20 @@ export function createSlackWorkflowAdapter(opts: {
         return;
       }
 
-      await sessions.start({ teamId, channel, threadTs, prompt });
+      await opts.onStart({ teamId, channel, threadTs, prompt });
     },
 
     async onBlockAction(action) {
       if (action.value === undefined) return;
-      if (action.actionId === APPROVE_ACTION_ID) {
-        await sessions.approve(action.value, action.userId);
-        return;
-      }
-      if (action.actionId === REJECT_ACTION_ID) {
-        await sessions.reject(action.value);
-      }
+
+      const handler = opts.actionHandlers[action.actionId];
+      if (handler === undefined) return;
+
+      await handler({ ...action, value: action.value });
     },
 
     async onAssistantUserMessage(message) {
-      await sessions.start({
+      await opts.onStart({
         teamId: message.teamId,
         channel: message.channel,
         threadTs: message.threadTs,
@@ -58,7 +63,7 @@ export function createSlackWorkflowAdapter(opts: {
   };
 }
 
-function isStartEvent(event: SlackEvent): boolean {
+function isDefaultStartEvent(event: SlackEvent): boolean {
   if (event.bot_id !== undefined || event.subtype !== undefined) return false;
   if (event.type === "app_mention") return true;
   if (event.type !== "message") return false;

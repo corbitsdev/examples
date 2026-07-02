@@ -9,7 +9,7 @@ import {
   type Source,
 } from "@corbits/example-workflow-approval-flow";
 
-export const SERVICE_NAME = "slack-workflow";
+export const SERVICE_NAME = "slack-approval-flow";
 
 export type SlackWorkflowConfig = SlackConnectionConfig & {
   source: Source;
