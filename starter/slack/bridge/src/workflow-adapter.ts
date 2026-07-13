@@ -67,5 +67,5 @@ function isDefaultStartEvent(event: SlackEvent): boolean {
   if (event.bot_id !== undefined || event.subtype !== undefined) return false;
   if (event.type === "app_mention") return true;
   if (event.type !== "message") return false;
-  return (event.channel ?? "").startsWith("D");
+  return event.channel_type === "im";
 }
