@@ -26,6 +26,8 @@ export async function postMessage(
 }
 
 export function cleanSlackText(text: string): string {
+  // Slack includes the bot mention and may append a "Sent using" attribution.
+  // Neither belongs in the prompt sent to the agent.
   return text
     .replace(/<@[UW][A-Z0-9]+(?:\|[^>]+)?>/g, "")
     .replace(/\*Sent using\*.*$/gim, "")
