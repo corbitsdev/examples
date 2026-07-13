@@ -4,6 +4,7 @@ import { join } from "node:path";
 import {
   createAgent,
   createDefaultDirectorRegistry,
+  type Agent,
   type AgentDefinition,
   type BaseEnv,
 } from "@intx/agent";
@@ -17,6 +18,8 @@ export type AgentTurnRuntime = {
   authorize: BaseEnv["authorize"];
 };
 
+const agents = new Map<string, Promise<Agent>>();
+
 export async function runAgentTurn(
   runtime: AgentTurnRuntime,
   definition: AgentDefinition,
@@ -24,25 +27,27 @@ export async function runAgentTurn(
   conversationKey: string,
 ): Promise<string> {
   const contextDir = agentContextDir(runtime.contextRoot, conversationKey);
-  mkdirSync(contextDir, { recursive: true });
+  let agentPromise = agents.get(contextDir);
 
-  const storage = await createIsogitStore(contextDir);
-  const agent = await createAgent(definition, {
-    sources: [runtime.source],
-    defaultSource: runtime.source.id,
-    storage,
-    workdir: contextDir,
-    audit: storage,
-    authorize: runtime.authorize,
-    directors: createDefaultDirectorRegistry(),
-  } satisfies BaseEnv);
-
-  try {
-    const { reply } = await agent.send(prompt);
-    return reply;
-  } finally {
-    await agent.close();
+  if (agentPromise === undefined) {
+    mkdirSync(contextDir, { recursive: true });
+    agentPromise = createIsogitStore(contextDir).then((storage) =>
+      createAgent(definition, {
+        sources: [runtime.source],
+        defaultSource: runtime.source.id,
+        storage,
+        workdir: contextDir,
+        audit: storage,
+        authorize: runtime.authorize,
+        directors: createDefaultDirectorRegistry(),
+      } satisfies BaseEnv),
+    );
+    agents.set(contextDir, agentPromise);
   }
+
+  const agent = await agentPromise;
+  const { reply } = await agent.send(prompt);
+  return reply;
 }
 
 export function agentContextDir(
