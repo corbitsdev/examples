@@ -35,5 +35,10 @@ export function cleanSlackText(text: string): string {
 }
 
 export function truncateForSlack(text: string): string {
-  return text.length > 39000 ? text.slice(0, 38997) + "..." : text;
+  // Slack truncates messages above 40,000 characters, so stay below that limit.
+  const limit = 39_000;
+  if (text.length <= limit) return text;
+
+  const notice = "\n\n[Response truncated to fit Slack's message limit.]";
+  return text.slice(0, limit - notice.length) + notice;
 }
