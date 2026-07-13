@@ -36,7 +36,7 @@ export function resolveSlackConnection(
 
   const portText = env.PORT ?? String(opts.defaultPort ?? 3001);
   const port = Number(portText);
-  if (!/^[0-9]+$/.test(portText) || port <= 0 || port > 65535) {
+  if (!Number.isInteger(port) || port <= 0 || port > 65535) {
     return { error: `PORT="${portText}" is not a valid port.\n` };
   }
 
