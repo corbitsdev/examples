@@ -33,6 +33,13 @@ export function resolveSlackConnection(
         "\n",
     };
   }
+  if (appToken === "") {
+    return {
+      error:
+        "SLACK_APP_TOKEN is empty. Unset it for HTTP mode or provide an " +
+        "xapp token for Socket Mode.\n",
+    };
+  }
 
   const portText = env.PORT ?? String(opts.defaultPort ?? 3001);
   const port = Number(portText);
@@ -45,7 +52,7 @@ export function resolveSlackConnection(
       port,
       signingSecret,
       botToken,
-      appToken: appToken === "" ? undefined : appToken,
+      appToken,
     },
   };
 }
