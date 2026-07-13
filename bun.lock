@@ -369,6 +369,7 @@
         "@slack/bolt": "^4.2.0",
         "@slack/types": "^2.21.1",
         "@slack/web-api": "^7.9.1",
+        "arktype": "catalog:",
       },
     },
     "starter/slack/workflows/approval-flow": {

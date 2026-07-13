@@ -1,7 +1,37 @@
 import type { SlackCommandMiddlewareArgs } from "@slack/bolt";
 import type { AppMentionEvent, GenericMessageEvent } from "@slack/types";
+import { type } from "arktype";
 
 import { cleanSlackText } from "./messages";
+
+const BlockActionPayload = type({
+  action_id: "string > 0",
+  "value?": "string > 0",
+});
+
+const BlockActionBody = type({
+  "user?": { "id?": "string > 0" },
+  "channel?": { "id?": "string > 0" },
+  "message?": { "ts?": "string > 0" },
+  "container?": { "message_ts?": "string > 0" },
+  "team?": { "id?": "string > 0" },
+});
+
+const AssistantThreadPayload = type({
+  assistant_thread: {
+    channel_id: "string > 0",
+    thread_ts: "string > 0",
+    "user_id?": "string > 0",
+    "context?": { "team_id?": "string > 0" },
+  },
+});
+
+const AssistantMessagePayload = type({
+  channel: "string > 0",
+  thread_ts: "string > 0",
+  text: "string > 0",
+  "user?": "string > 0",
+});
 
 export type SlackEvent = AppMentionEvent | GenericMessageEvent;
 
@@ -32,21 +62,22 @@ export function toSlackBlockAction(
   body: unknown,
   action: unknown,
 ): SlackBlockAction {
-  const actionRecord = asRecord(action);
-  const bodyRecord = asRecord(body);
-  const user = asRecord(bodyRecord.user);
-  const channel = asRecord(bodyRecord.channel);
-  const message = asRecord(bodyRecord.message);
-  const container = asRecord(bodyRecord.container);
-  const team = asRecord(bodyRecord.team);
+  const parsedAction = BlockActionPayload(action);
+  if (parsedAction instanceof type.errors) {
+    throw new Error(`Invalid Slack block action: ${parsedAction.summary}`);
+  }
+  const parsedBody = BlockActionBody(body);
+  if (parsedBody instanceof type.errors) {
+    throw new Error(`Invalid Slack block action body: ${parsedBody.summary}`);
+  }
 
   return {
-    actionId: stringValue(actionRecord.action_id) ?? "",
-    value: stringValue(actionRecord.value),
-    teamId: stringValue(team.id) ?? contextTeamId,
-    userId: stringValue(user.id),
-    channelId: stringValue(channel.id),
-    messageTs: stringValue(message.ts) ?? stringValue(container.message_ts),
+    actionId: parsedAction.action_id,
+    value: parsedAction.value,
+    teamId: parsedBody.team?.id ?? contextTeamId,
+    userId: parsedBody.user?.id,
+    channelId: parsedBody.channel?.id,
+    messageTs: parsedBody.message?.ts ?? parsedBody.container?.message_ts,
   };
 }
 
@@ -54,18 +85,15 @@ export function toSlackAssistantThread(
   contextTeamId: string | undefined,
   payload: unknown,
 ): SlackAssistantThread | undefined {
-  const payloadRecord = asRecord(payload);
-  const assistantThread = asRecord(payloadRecord.assistant_thread);
-  const context = asRecord(assistantThread.context);
-  const channel = stringValue(assistantThread.channel_id);
-  const threadTs = stringValue(assistantThread.thread_ts);
-  if (channel === undefined || threadTs === undefined) return undefined;
+  const parsed = AssistantThreadPayload(payload);
+  if (parsed instanceof type.errors) return undefined;
+  const thread = parsed.assistant_thread;
 
   return {
-    teamId: stringValue(context.team_id) ?? contextTeamId,
-    channel,
-    threadTs,
-    userId: stringValue(assistantThread.user_id),
+    teamId: thread.context?.team_id ?? contextTeamId,
+    channel: thread.channel_id,
+    threadTs: thread.thread_ts,
+    userId: thread.user_id,
   };
 }
 
@@ -73,29 +101,16 @@ export function toSlackAssistantMessage(
   contextTeamId: string | undefined,
   payload: unknown,
 ): SlackAssistantMessage | undefined {
-  const payloadRecord = asRecord(payload);
-  const channel = stringValue(payloadRecord.channel);
-  const threadTs = stringValue(payloadRecord.thread_ts);
-  const prompt = cleanSlackText(stringValue(payloadRecord.text) ?? "");
-  if (channel === undefined || threadTs === undefined || prompt === "") {
-    return undefined;
-  }
+  const parsed = AssistantMessagePayload(payload);
+  if (parsed instanceof type.errors) return undefined;
+  const prompt = cleanSlackText(parsed.text);
+  if (prompt === "") return undefined;
 
   return {
     teamId: contextTeamId,
-    channel,
-    threadTs,
-    userId: stringValue(payloadRecord.user),
+    channel: parsed.channel,
+    threadTs: parsed.thread_ts,
+    userId: parsed.user,
     prompt,
   };
-}
-
-function asRecord(value: unknown): Record<string, unknown> {
-  return value !== null && typeof value === "object"
-    ? (value as Record<string, unknown>)
-    : {};
-}
-
-function stringValue(value: unknown): string | undefined {
-  return typeof value === "string" && value !== "" ? value : undefined;
 }
