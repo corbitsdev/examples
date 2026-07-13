@@ -17,7 +17,7 @@ export function startedBlocks(runId: string): SlackBlock[] {
 
 export function draftReadyBlocks(
   draft: string,
-  pendingKey: string,
+  runId: string,
 ): SlackBlock[] {
   return [
     header("Draft ready for approval"),
@@ -27,13 +27,13 @@ export function draftReadyBlocks(
         text: "Approve",
         style: "primary",
         actionId: APPROVE_ACTION_ID,
-        value: pendingKey,
+        value: runId,
       }),
       button({
         text: "Reject",
         style: "danger",
         actionId: REJECT_ACTION_ID,
-        value: pendingKey,
+        value: runId,
       }),
     ]),
   ];
