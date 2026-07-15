@@ -19,11 +19,18 @@
   "scripts": {
     "build": "bun build src/sidecar-bundle.ts --target=node --format=esm --outdir=dist",
     "check": "tsc -p tsconfig.json --noEmit",
-    "test": "bun test src"
+    "pack": "bun scripts/pack.ts",
+    "test": "bun test src scripts",
+    "upload": "bun scripts/upload.ts",
+    "verify:package": "bun scripts/verify-package.ts"
   },
   "dependencies": {
     "@intx/agent": "workspace:*",
     "@intx/types": "workspace:*",
     "arktype": "catalog:"
+  },
+  "devDependencies": {
+    "ssri": "catalog:",
+    "tar": "catalog:"
   }
 }

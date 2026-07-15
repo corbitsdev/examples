@@ -65,9 +65,42 @@ The package exports the named sidecar factory `x` from
 `@intx/tools-x/sidecar-bundle`, following the existing Interchange tool-package
 convention.
 
+## Package and upload
+
+Build the self-contained Node ESM bundle and deterministic npm-style tarball:
+
+```sh
+bun run pack
+bun run verify:package
+```
+
+The artifact is `dist/@intx-tools-x-0.1.0.tgz`. Its SHA-512 SRI, byte size,
+and path are recorded in `dist/package-manifest.json`. Repeated builds produce
+identical bytes.
+
+Upload the verified artifact to a deployed Hub:
+
+```sh
+export HUB_URL=https://hub.example.com
+export HUB_ADMIN_EMAIL=publisher@example.com
+export HUB_ADMIN_PASSWORD='...'
+export HUB_TENANT_SLUG=my-tenant
+bun run upload
+```
+
+The uploader signs in without creating users or tenants, targets only the
+direct `workspace-builtins` package-registry asset, and verifies the local,
+upload-response, and post-upload SRI values. Remote tarballs use a full
+SHA-512 content-addressed filename, making same-byte concurrent uploads
+harmless while letting the registry reject different bytes for the same
+package version without an overwrite. If the version already exists with
+different bytes, increment the package version instead.
+
 ## Validation
 
 ```sh
 bun test
 bun run check
+bun run pack
+bun run verify:package
 ```

@@ -388,6 +388,10 @@
         "@intx/types": "workspace:*",
         "arktype": "catalog:",
       },
+      "devDependencies": {
+        "ssri": "catalog:",
+        "tar": "catalog:",
+      },
     },
     "starter/workflow-approval-flow": {
       "name": "@corbits/example-workflow-approval-flow",
