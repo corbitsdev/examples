@@ -3,14 +3,27 @@
   "version": "0.1.0",
   "license": "MIT",
   "type": "module",
+  "interchange": {
+    "tools": "./dist/sidecar-bundle.js"
+  },
   "exports": {
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./sidecar-bundle": {
+      "types": "./src/sidecar-bundle.ts",
+      "default": "./src/sidecar-bundle.ts"
     }
   },
   "scripts": {
+    "build": "bun build src/sidecar-bundle.ts --target=node --format=esm --outdir=dist",
     "check": "tsc -p tsconfig.json --noEmit",
     "test": "bun test src"
+  },
+  "dependencies": {
+    "@intx/agent": "workspace:*",
+    "@intx/types": "workspace:*",
+    "arktype": "catalog:"
   }
 }

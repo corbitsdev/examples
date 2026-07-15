@@ -383,6 +383,11 @@
     "starter/tools-x": {
       "name": "@intx/tools-x",
       "version": "0.1.0",
+      "dependencies": {
+        "@intx/agent": "workspace:*",
+        "@intx/types": "workspace:*",
+        "arktype": "catalog:",
+      },
     },
     "starter/workflow-approval-flow": {
       "name": "@corbits/example-workflow-approval-flow",
