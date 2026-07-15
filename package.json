@@ -6,6 +6,7 @@
     "starter/slack/bridge",
     "starter/slack/agent",
     "starter/slack/workflows/approval-flow",
+    "starter/tools-x",
     "starter/workflow-approval-flow",
     "starter/workflow-quickstart"
   ],

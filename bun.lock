@@ -380,6 +380,10 @@
         "@intx/workflow": "workspace:*",
       },
     },
+    "starter/tools-x": {
+      "name": "@intx/tools-x",
+      "version": "0.1.0",
+    },
     "starter/workflow-approval-flow": {
       "name": "@corbits/example-workflow-approval-flow",
       "version": "0.1.0",
@@ -554,6 +558,8 @@
     "@intx/tools-mail": ["@intx/tools-mail@workspace:interchange/packages/tools-mail"],
 
     "@intx/tools-posix": ["@intx/tools-posix@workspace:interchange/packages/tools-posix"],
+
+    "@intx/tools-x": ["@intx/tools-x@workspace:starter/tools-x"],
 
     "@intx/types": ["@intx/types@workspace:interchange/packages/types"],
 
