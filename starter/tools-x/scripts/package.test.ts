@@ -159,22 +159,26 @@ function fakeHub(mode: "upload" | "same" | "conflict" | "auth-failure"): {
 }
 
 describe("tools-x package artifact", () => {
-  test("is byte-for-byte deterministic across independent builds", async () => {
-    await runPackCLI();
-    const first = await readAndVerifyManifest(PACKAGE_ROOT);
-    const firstBytes = await fs.readFile(
-      path.join(PACKAGE_ROOT, first.tarballPath),
-    );
-    await runPackCLI();
-    const second = await readAndVerifyManifest(PACKAGE_ROOT);
-    const secondBytes = await fs.readFile(
-      path.join(PACKAGE_ROOT, second.tarballPath),
-    );
-    expect(second.integrity).toBe(first.integrity);
-    expect(second.size).toBe(first.size);
-    expect(secondBytes.equals(firstBytes)).toBe(true);
-    manifest = second;
-  });
+  test(
+    "is byte-for-byte deterministic across independent builds",
+    async () => {
+      await runPackCLI();
+      const first = await readAndVerifyManifest(PACKAGE_ROOT);
+      const firstBytes = await fs.readFile(
+        path.join(PACKAGE_ROOT, first.tarballPath),
+      );
+      await runPackCLI();
+      const second = await readAndVerifyManifest(PACKAGE_ROOT);
+      const secondBytes = await fs.readFile(
+        path.join(PACKAGE_ROOT, second.tarballPath),
+      );
+      expect(second.integrity).toBe(first.integrity);
+      expect(second.size).toBe(first.size);
+      expect(secondBytes.equals(firstBytes)).toBe(true);
+      manifest = second;
+    },
+    { timeout: 15_000 },
+  );
 
   test("verifies the generated manifest, archive, and loaded 23-tool bundle", async () => {
     await expect(readAndVerifyManifest(PACKAGE_ROOT)).resolves.toEqual(

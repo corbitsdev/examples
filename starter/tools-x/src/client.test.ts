@@ -43,21 +43,45 @@ function expectClientError(error: unknown, kind: XAPIClientError["kind"]) {
 
 describe("createXAPIClient", () => {
   test("rejects invalid construction options", () => {
-    expect(() => createXAPIClient({ accessToken: "" })).toThrow(
-      /must not be empty/,
-    );
     expect(() =>
-      createXAPIClient({ accessToken: "token", baseURL: "file:///tmp/x" }),
+      createXAPIClient({ auth: { type: "oauth2", accessToken: "" } }),
+    ).toThrow(/must not be empty/);
+    expect(() =>
+      createXAPIClient({
+        auth: { type: "oauth2", accessToken: "token" },
+        baseURL: "file:///tmp/x",
+      }),
     ).toThrow(/HTTP or HTTPS/);
     expect(() =>
-      createXAPIClient({ accessToken: "token", timeoutMs: 0 }),
+      createXAPIClient({
+        auth: { type: "oauth2", accessToken: "token" },
+        timeoutMs: 0,
+      }),
     ).toThrow(/positive number/);
+
+    const oauth1 = {
+      type: "oauth1" as const,
+      apiKey: "api-key",
+      apiSecret: "api-secret",
+      accessToken: "access-token",
+      accessTokenSecret: "access-token-secret",
+    };
+    for (const name of [
+      "apiKey",
+      "apiSecret",
+      "accessToken",
+      "accessTokenSecret",
+    ] as const) {
+      expect(() =>
+        createXAPIClient({ auth: { ...oauth1, [name]: "" } }),
+      ).toThrow(/must not be empty/);
+    }
   });
 
   test("builds an authenticated request with deterministic query encoding", async () => {
     const harness = createFetchHarness(createJSONResponse({ data: [] }));
     const client = createXAPIClient({
-      accessToken: "secret-token",
+      auth: { type: "oauth2", accessToken: "secret-token" },
       baseURL: "https://example.test/",
       fetch: harness.mockFetch,
     });
@@ -90,7 +114,7 @@ describe("createXAPIClient", () => {
   test("serializes JSON bodies and owns the content type", async () => {
     const harness = createFetchHarness(createJSONResponse({ data: true }));
     const client = createXAPIClient({
-      accessToken: "token",
+      auth: { type: "oauth2", accessToken: "token" },
       baseURL: "https://example.test/api/",
       fetch: harness.mockFetch,
     });
@@ -110,7 +134,7 @@ describe("createXAPIClient", () => {
   test("rejects unsafe paths and invalid query values before fetching", async () => {
     const harness = createFetchHarness(createJSONResponse({}));
     const client = createXAPIClient({
-      accessToken: "token",
+      auth: { type: "oauth2", accessToken: "token" },
       fetch: harness.mockFetch,
     });
 
@@ -144,7 +168,7 @@ describe("createXAPIClient", () => {
       createJSONResponse({ data: { id: "1" } }),
     );
     const jsonClient = createXAPIClient({
-      accessToken: "token",
+      auth: { type: "oauth2", accessToken: "token" },
       fetch: jsonHarness.mockFetch,
     });
     await expect(
@@ -155,7 +179,7 @@ describe("createXAPIClient", () => {
       new Response(null, { status: 204 }),
     );
     const emptyClient = createXAPIClient({
-      accessToken: "token",
+      auth: { type: "oauth2", accessToken: "token" },
       fetch: emptyHarness.mockFetch,
     });
     await expect(
@@ -170,7 +194,7 @@ describe("createXAPIClient", () => {
     ]) {
       const harness = createFetchHarness(response);
       const client = createXAPIClient({
-        accessToken: "token",
+        auth: { type: "oauth2", accessToken: "token" },
         fetch: harness.mockFetch,
       });
       await expect(
@@ -185,7 +209,7 @@ describe("createXAPIClient", () => {
       new Response(`${accessToken} suffix`, { status: 200 }),
     );
     const client = createXAPIClient({
-      accessToken,
+      auth: { type: "oauth2", accessToken },
       fetch: harness.mockFetch,
     });
 
@@ -214,7 +238,7 @@ describe("createXAPIClient", () => {
       ),
     );
     const client = createXAPIClient({
-      accessToken: "secret-token",
+      auth: { type: "oauth2", accessToken: "secret-token" },
       fetch: harness.mockFetch,
     });
 
@@ -244,7 +268,7 @@ describe("createXAPIClient", () => {
       }),
     );
     const client = createXAPIClient({
-      accessToken: "secret-token",
+      auth: { type: "oauth2", accessToken: "secret-token" },
       fetch: harness.mockFetch,
     });
 
@@ -264,7 +288,7 @@ describe("createXAPIClient", () => {
       new Response(`${"x".repeat(65_530)}secret-token`, { status: 500 }),
     );
     const client = createXAPIClient({
-      accessToken: "secret-token",
+      auth: { type: "oauth2", accessToken: "secret-token" },
       fetch: harness.mockFetch,
     });
 
@@ -290,7 +314,7 @@ describe("createXAPIClient", () => {
       }),
     );
     const client = createXAPIClient({
-      accessToken: "token",
+      auth: { type: "oauth2", accessToken: "token" },
       fetch: harness.mockFetch,
     });
 
@@ -326,7 +350,7 @@ describe("createXAPIClient", () => {
     const preAborted = new AbortController();
     preAborted.abort();
     const client = createXAPIClient({
-      accessToken: "token",
+      auth: { type: "oauth2", accessToken: "token" },
       timeoutMs: 20,
       fetch: pendingFetch,
     });
@@ -349,7 +373,7 @@ describe("createXAPIClient", () => {
 
     let transportCount = 0;
     const transportClient = createXAPIClient({
-      accessToken: "secret-token",
+      auth: { type: "oauth2", accessToken: "secret-token" },
       fetch: () => {
         transportCount += 1;
         return Promise.reject(new Error("dial failed for secret-token"));
@@ -387,7 +411,7 @@ describe("createXAPIClient", () => {
       });
 
     const timeoutClient = createXAPIClient({
-      accessToken: "token",
+      auth: { type: "oauth2", accessToken: "token" },
       timeoutMs: 5,
       fetch: delayedBodyFetch,
     });
@@ -397,7 +421,7 @@ describe("createXAPIClient", () => {
 
     const controller = new AbortController();
     const abortClient = createXAPIClient({
-      accessToken: "token",
+      auth: { type: "oauth2", accessToken: "token" },
       timeoutMs: 1_000,
       fetch: delayedBodyFetch,
     });
@@ -413,7 +437,7 @@ describe("createXAPIClient", () => {
   test("does not follow redirects or retry failed requests", async () => {
     let fetchCount = 0;
     const client = createXAPIClient({
-      accessToken: "token",
+      auth: { type: "oauth2", accessToken: "token" },
       fetch: (_input, init) => {
         fetchCount += 1;
         expect(init.redirect).toBe("error");

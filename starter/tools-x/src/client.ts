@@ -1,3 +1,9 @@
+import {
+  createOAuth1AuthorizationHeader,
+  type XOAuth1Credentials,
+  type XOAuth1SigningOptions,
+} from "./oauth1";
+
 const DEFAULT_API_BASE_URL = "https://api.x.com";
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 const DEFAULT_USER_AGENT = "@intx/tools-x/0.1.0";
@@ -44,12 +50,20 @@ export type XFetchInit = {
 
 export type XFetch = (input: URL, init: XFetchInit) => Promise<XFetchResponse>;
 
-export type XAPIClientOptions = {
+export type XOAuth2Credentials = {
+  type: "oauth2";
   accessToken: string;
+};
+
+export type XAuthentication = XOAuth1Credentials | XOAuth2Credentials;
+
+export type XAPIClientOptions = {
+  auth: XAuthentication;
   baseURL?: string;
   timeoutMs?: number;
   userAgent?: string;
   fetch?: XFetch;
+  oauth1?: XOAuth1SigningOptions;
 };
 
 export type XAPIClientErrorKind =
@@ -206,57 +220,77 @@ function serializeBody(request: XAPIRequest): string | undefined {
   }
 }
 
-function redact(value: string, accessToken: string, maxLength: number): string {
-  return value.replaceAll(accessToken, "[REDACTED]").slice(0, maxLength);
+function secretValues(auth: XAuthentication): string[] {
+  const values =
+    auth.type === "oauth1"
+      ? [
+          auth.apiKey,
+          auth.apiSecret,
+          auth.accessToken,
+          auth.accessTokenSecret,
+        ]
+      : [auth.accessToken];
+  return [...values].sort((left, right) => right.length - left.length);
 }
 
-function safeCause(cause: unknown, accessToken: string): Error {
-  const message =
-    cause instanceof Error ? cause.message : `unknown error: ${String(cause)}`;
-  return new Error(redact(message, accessToken, MAX_ERROR_MESSAGE_LENGTH));
+function redact(value: string, secrets: readonly string[], maxLength: number): string {
+  let redacted = value;
+  for (const secret of secrets) {
+    redacted = redacted.replaceAll(secret, "[REDACTED]");
+  }
+  return redacted.slice(0, maxLength);
 }
 
-function safeErrorBody(text: string, accessToken: string): unknown {
+function safeCause(): Error {
+  // Fetch implementations and HTTP wrappers may include the complete
+  // Authorization header in their exception message. OAuth1 headers also
+  // contain a derived signature that cannot be redacted from the four raw
+  // credential values. Preserve the error classification, not the potentially
+  // credential-bearing upstream message.
+  return new Error("upstream request details withheld");
+}
+
+function safeErrorBody(text: string, secrets: readonly string[]): unknown {
   if (text.length > MAX_ERROR_BODY_LENGTH) {
-    return redact(text, accessToken, MAX_ERROR_BODY_LENGTH);
+    return redact(text, secrets, MAX_ERROR_BODY_LENGTH);
   }
   try {
-    return redactJSONValue(JSON.parse(text), accessToken);
+    return redactJSONValue(JSON.parse(text), secrets);
   } catch {
-    return redact(text, accessToken, MAX_ERROR_BODY_LENGTH);
+    return redact(text, secrets, MAX_ERROR_BODY_LENGTH);
   }
 }
 
 function redactJSONValue(
   value: unknown,
-  accessToken: string,
+  secrets: readonly string[],
   depth = 0,
 ): unknown {
   if (typeof value === "string") {
-    return redact(value, accessToken, MAX_ERROR_BODY_LENGTH);
+    return redact(value, secrets, MAX_ERROR_BODY_LENGTH);
   }
   if (value === null || typeof value !== "object") return value;
   if (depth >= 64) return "[TRUNCATED]";
   if (Array.isArray(value)) {
-    return value.map((item) => redactJSONValue(item, accessToken, depth + 1));
+    return value.map((item) => redactJSONValue(item, secrets, depth + 1));
   }
   return Object.fromEntries(
     Object.entries(value).map(([key, item]) => [
-      redact(key, accessToken, MAX_ERROR_BODY_LENGTH),
-      redactJSONValue(item, accessToken, depth + 1),
+      redact(key, secrets, MAX_ERROR_BODY_LENGTH),
+      redactJSONValue(item, secrets, depth + 1),
     ]),
   );
 }
 
 function selectSafeHeaders(
   headers: XFetchHeaders,
-  accessToken: string,
+  secrets: readonly string[],
 ): Readonly<Record<string, string>> {
   const safe: Record<string, string> = {};
   for (const name of SAFE_RESPONSE_HEADERS) {
     const value = headers.get(name);
     if (value !== null) {
-      safe[name] = redact(value, accessToken, MAX_ERROR_MESSAGE_LENGTH);
+      safe[name] = redact(value, secrets, MAX_ERROR_MESSAGE_LENGTH);
     }
   }
   return Object.freeze(safe);
@@ -289,8 +323,19 @@ function isAborted(signal: AbortSignal | undefined): boolean {
 }
 
 export function createXAPIClient(opts: XAPIClientOptions): XAPIClient {
-  if (opts.accessToken.trim() === "") {
+  if (opts.auth.accessToken.trim() === "") {
     throw configurationError("X access token must not be empty");
+  }
+  if (opts.auth.type === "oauth1") {
+    if (opts.auth.apiKey.trim() === "") {
+      throw configurationError("X API key must not be empty");
+    }
+    if (opts.auth.apiSecret.trim() === "") {
+      throw configurationError("X API secret must not be empty");
+    }
+    if (opts.auth.accessTokenSecret.trim() === "") {
+      throw configurationError("X access token secret must not be empty");
+    }
   }
   const baseURL = normalizeBaseURL(opts.baseURL ?? DEFAULT_API_BASE_URL);
   const timeoutMs = opts.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
@@ -308,7 +353,8 @@ export function createXAPIClient(opts: XAPIClientOptions): XAPIClient {
         ...init,
         headers: { ...init.headers },
       }));
-  const accessToken = opts.accessToken;
+  const auth = opts.auth;
+  const secrets = secretValues(auth);
 
   return {
     async request(request, signal) {
@@ -338,7 +384,15 @@ export function createXAPIClient(opts: XAPIClientOptions): XAPIClient {
       try {
         const headers: Record<string, string> = {
           Accept: "application/json",
-          Authorization: `Bearer ${accessToken}`,
+          Authorization:
+            auth.type === "oauth1"
+              ? createOAuth1AuthorizationHeader(
+                  request.method,
+                  url,
+                  auth,
+                  opts.oauth1,
+                )
+              : `Bearer ${auth.accessToken}`,
           "User-Agent": userAgent,
         };
         if (body !== undefined) headers["Content-Type"] = "application/json";
@@ -353,7 +407,7 @@ export function createXAPIClient(opts: XAPIClientOptions): XAPIClient {
             redirect: "error",
             credentials: "omit",
           });
-        } catch (cause) {
+        } catch {
           if (timedOut) {
             throw new XAPIClientError(
               "timeout",
@@ -366,14 +420,14 @@ export function createXAPIClient(opts: XAPIClientOptions): XAPIClient {
           throw new XAPIClientError(
             "transport",
             "X API request failed before receiving a response",
-            { cause: safeCause(cause, accessToken) },
+            { cause: safeCause() },
           );
         }
 
         let responseText: string;
         try {
           responseText = await response.text();
-        } catch (cause) {
+        } catch {
           if (timedOut) {
             throw new XAPIClientError(
               "timeout",
@@ -386,7 +440,7 @@ export function createXAPIClient(opts: XAPIClientOptions): XAPIClient {
           throw new XAPIClientError(
             "response",
             "X API response body could not be read",
-            { cause: safeCause(cause, accessToken) },
+            { cause: safeCause() },
           );
         }
 
@@ -396,8 +450,8 @@ export function createXAPIClient(opts: XAPIClientOptions): XAPIClient {
             `X API request failed with status ${String(response.status)}`,
             {
               status: response.status,
-              body: safeErrorBody(responseText, accessToken),
-              headers: selectSafeHeaders(response.headers, accessToken),
+              body: safeErrorBody(responseText, secrets),
+              headers: selectSafeHeaders(response.headers, secrets),
             },
           );
         }

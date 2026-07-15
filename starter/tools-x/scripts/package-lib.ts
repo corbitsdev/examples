@@ -213,7 +213,17 @@ export async function verifyTarballBytes(
     }
     await fs.access(entryPath);
 
-    const previousToken = process.env["X_ACCESS_TOKEN"];
+    const authVariables = [
+      "X_OAUTH1_CREDENTIAL",
+      "X_API_KEY",
+      "X_API_SECRET",
+      "X_ACCESS_TOKEN",
+      "X_ACCESS_TOKEN_SECRET",
+    ] as const;
+    const previousAuthVariables = new Map(
+      authVariables.map((name) => [name, process.env[name]]),
+    );
+    for (const name of authVariables) delete process.env[name];
     process.env["X_ACCESS_TOKEN"] = "package-verification-token";
     try {
       const module = (await import(
@@ -235,8 +245,11 @@ export async function verifyTarballBytes(
         throw new Error("packed x factory does not expose 23 definitions");
       }
     } finally {
-      if (previousToken === undefined) delete process.env["X_ACCESS_TOKEN"];
-      else process.env["X_ACCESS_TOKEN"] = previousToken;
+      for (const name of authVariables) {
+        const previous = previousAuthVariables.get(name);
+        if (previous === undefined) delete process.env[name];
+        else process.env[name] = previous;
+      }
     }
   } finally {
     await fs.rm(verificationRoot, { recursive: true, force: true });

@@ -9,18 +9,50 @@ not forward requests to an MCP server.
 
 ## Authentication
 
-The sidecar bundle reads one OAuth 2.0 user access token from
-`X_ACCESS_TOKEN`. When deploying through Interchange, bind a credential with
-that environment name to the agent instance. Local callers pass the token to
-the factory directly:
+The sidecar bundle supports OAuth 1.0a user context through the same four
+environment names used by `xurl`:
+
+```text
+X_API_KEY X_API_SECRET X_ACCESS_TOKEN X_ACCESS_TOKEN_SECRET
+```
+
+All four values are required together. If the OAuth1-only variables are
+absent, `X_ACCESS_TOKEN` is treated as an OAuth 2.0 user access token. A
+partial OAuth1 configuration fails closed instead of falling back to Bearer
+authentication. `X_DRY_RUN` is not an authentication setting and is ignored.
+
+For credential stores that materialize one opaque secret per environment
+name, use `X_OAUTH1_CREDENTIAL` with one JSON object containing exactly the
+four fields below. This atomic form cannot be combined with any of the four
+individual variables:
+
+```json
+{
+  "apiKey": "...",
+  "apiSecret": "...",
+  "accessToken": "...",
+  "accessTokenSecret": "..."
+}
+```
+
+Local callers pass an explicit authentication object to the factory:
 
 ```ts
 import { createXTools } from "@intx/tools-x";
 
-const tools = createXTools({ accessToken: process.env.X_ACCESS_TOKEN! });
+const tools = createXTools({
+  auth: {
+    type: "oauth1",
+    apiKey: process.env.X_API_KEY!,
+    apiSecret: process.env.X_API_SECRET!,
+    accessToken: process.env.X_ACCESS_TOKEN!,
+    accessTokenSecret: process.env.X_ACCESS_TOKEN_SECRET!,
+  },
+});
 ```
 
-The complete phase needs these user-token scopes across all operations:
+For OAuth2, the complete phase needs these user-token scopes across all
+operations:
 
 ```text
 tweet.read users.read follows.read follows.write block.read
@@ -28,6 +60,9 @@ mute.read mute.write like.read like.write timeline.read tweet.write
 ```
 
 An application-only bearer token is not sufficient for the full package.
+OAuth1 requests are signed with HMAC-SHA1 over the final method, URL query,
+and OAuth protocol parameters. JSON bodies are not part of OAuth1 parameter
+normalization.
 
 ## Users tools
 
@@ -52,8 +87,8 @@ encoded as comma-separated X API parameters. Dotted wire keys such as
 `tweet.fields` and `user.fields` are preserved in tool input schemas.
 
 For authenticated-account operations, `id` or `source_user_id` must identify
-the owner of `X_ACCESS_TOKEN`; X enforces this invariant. The four POST tools
-keep their body fields at the top level of tool arguments:
+the owner of the selected user credential; X enforces this invariant. The four
+POST tools keep their body fields at the top level of tool arguments:
 
 - `followUser` and `muteUser`: `target_user_id`
 - `likePost` and `repostPost`: `tweet_id`

@@ -18,6 +18,7 @@ export {
   type XAPIClient,
   type XAPIClientErrorKind,
   type XAPIClientOptions,
+  type XAuthentication,
   type XAPIRequest,
   type XFetch,
   type XFetchHeaders,
@@ -25,7 +26,13 @@ export {
   type XFetchResponse,
   type XQueryScalar,
   type XQueryValue,
+  type XOAuth2Credentials,
 } from "./client";
+export {
+  createOAuth1AuthorizationHeader,
+  type XOAuth1Credentials,
+  type XOAuth1SigningOptions,
+} from "./oauth1";
 export { TOOL_DEFINITIONS } from "./definitions";
 export { USER_TOOL_NAMES, type XUserToolName } from "./users/operations";
 

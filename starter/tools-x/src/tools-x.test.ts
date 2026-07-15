@@ -166,7 +166,7 @@ describe("@intx/tools-x Users tools", () => {
   test("maps every Users tool to the official method, path, query, and body", async () => {
     const capture = captureRequests();
     const tools = createXTools({
-      accessToken: "test-token",
+      auth: { type: "oauth2", accessToken: "test-token" },
       fetch: capture.fetch,
     });
 
@@ -188,7 +188,7 @@ describe("@intx/tools-x Users tools", () => {
   test("preserves dotted projection keys and comma-joins array query values", async () => {
     const capture = captureRequests();
     const tools = createXTools({
-      accessToken: "test-token",
+      auth: { type: "oauth2", accessToken: "test-token" },
       fetch: capture.fetch,
     });
     const result = await tools.run(
@@ -221,7 +221,7 @@ describe("@intx/tools-x Users tools", () => {
   test("rejects invalid and undeclared arguments before making a request", async () => {
     const capture = captureRequests();
     const tools = createXTools({
-      accessToken: "test-token",
+      auth: { type: "oauth2", accessToken: "test-token" },
       fetch: capture.fetch,
     });
     const cases = [
@@ -251,7 +251,7 @@ describe("@intx/tools-x Users tools", () => {
   test("allows duplicate lookup IDs and usernames as the OpenAPI contract does", async () => {
     const capture = captureRequests();
     const tools = createXTools({
-      accessToken: "test-token",
+      auth: { type: "oauth2", accessToken: "test-token" },
       fetch: capture.fetch,
     });
     for (const [name, arguments_] of [
@@ -268,7 +268,7 @@ describe("@intx/tools-x Users tools", () => {
   });
 
   test("returns stable runner errors and preserves safe X API details", async () => {
-    const unknownTools = createXTools({ accessToken: "test-token" });
+    const unknownTools = createXTools({ auth: { type: "oauth2", accessToken: "test-token" } });
     await expect(
       unknownTools.run(
         { id: "unknown", name: "notAnXTool", arguments: {} },
@@ -284,7 +284,7 @@ describe("@intx/tools-x Users tools", () => {
       Response.json({ title: "Too Many Requests" }, { status: 429 }),
     );
     const tools = createXTools({
-      accessToken: "test-token",
+      auth: { type: "oauth2", accessToken: "test-token" },
       fetch: capture.fetch,
     });
     const result = await tools.run(
@@ -307,11 +307,23 @@ describe("@intx/tools-x Users tools", () => {
 });
 
 describe("@intx/tools-x sidecar bundle", () => {
-  const originalToken = process.env["X_ACCESS_TOKEN"];
+  const oauth1VariableNames = [
+    "X_API_KEY",
+    "X_API_SECRET",
+    "X_ACCESS_TOKEN",
+    "X_ACCESS_TOKEN_SECRET",
+  ] as const;
+  const variableNames = ["X_OAUTH1_CREDENTIAL", ...oauth1VariableNames] as const;
+  const originalValues = Object.fromEntries(
+    variableNames.map((name) => [name, process.env[name]]),
+  );
 
   afterEach(() => {
-    if (originalToken === undefined) delete process.env["X_ACCESS_TOKEN"];
-    else process.env["X_ACCESS_TOKEN"] = originalToken;
+    for (const name of variableNames) {
+      const original = originalValues[name];
+      if (original === undefined) delete process.env[name];
+      else process.env[name] = original;
+    }
   });
 
   test("uses the package-namespaced loader convention", () => {
@@ -319,12 +331,90 @@ describe("@intx/tools-x sidecar bundle", () => {
     expect(x.requires).toEqual([]);
   });
 
-  test("fails clearly without the credential and constructs with it", () => {
-    delete process.env["X_ACCESS_TOKEN"];
+  test("fails clearly without credentials and preserves OAuth2 Bearer", () => {
+    for (const name of variableNames) delete process.env[name];
     expect(() => x({} as BaseEnv)).toThrow(/X_ACCESS_TOKEN/);
 
     process.env["X_ACCESS_TOKEN"] = "test-token";
     const bundle = x({} as BaseEnv);
     expect(bundle.definitions).toHaveLength(23);
+  });
+
+  test("constructs with a complete OAuth1 quartet", () => {
+    process.env["X_API_KEY"] = "api-key";
+    process.env["X_API_SECRET"] = "api-secret";
+    process.env["X_ACCESS_TOKEN"] = "access-token";
+    process.env["X_ACCESS_TOKEN_SECRET"] = "access-token-secret";
+
+    expect(x({} as BaseEnv).definitions).toHaveLength(23);
+  });
+
+  test("rejects every partial OAuth1 quartet", () => {
+    const complete = {
+      X_API_KEY: "api-key",
+      X_API_SECRET: "api-secret",
+      X_ACCESS_TOKEN: "access-token",
+      X_ACCESS_TOKEN_SECRET: "access-token-secret",
+    } as const;
+
+    for (const missing of oauth1VariableNames) {
+      for (const [name, value] of Object.entries(complete)) {
+        process.env[name] = value;
+      }
+      delete process.env[missing];
+      expect(() => x({} as BaseEnv), `missing ${missing}`).toThrow(
+        /requires X_API_KEY, X_API_SECRET, X_ACCESS_TOKEN, X_ACCESS_TOKEN_SECRET together/,
+      );
+    }
+  });
+
+  test("constructs from one strict atomic OAuth1 credential", () => {
+    for (const name of variableNames) delete process.env[name];
+    process.env["X_OAUTH1_CREDENTIAL"] = JSON.stringify({
+      apiKey: "api-key",
+      apiSecret: "api-secret",
+      accessToken: "access-token",
+      accessTokenSecret: "access-token-secret",
+    });
+
+    expect(x({} as BaseEnv).definitions).toHaveLength(23);
+  });
+
+  test("rejects malformed, incomplete, and conflicting atomic credentials", () => {
+    for (const name of variableNames) delete process.env[name];
+    for (const invalid of [
+      "not-json",
+      "[]",
+      JSON.stringify({
+        apiKey: "api-key",
+        apiSecret: "api-secret",
+        accessToken: "access-token",
+      }),
+      JSON.stringify({
+        apiKey: "api-key",
+        apiSecret: "api-secret",
+        accessToken: "access-token",
+        accessTokenSecret: "",
+      }),
+      JSON.stringify({
+        apiKey: "api-key",
+        apiSecret: "api-secret",
+        accessToken: "access-token",
+        accessTokenSecret: "access-token-secret",
+        extra: "not-allowed",
+      }),
+    ]) {
+      process.env["X_OAUTH1_CREDENTIAL"] = invalid;
+      expect(() => x({} as BaseEnv)).toThrow(/X_OAUTH1_CREDENTIAL/);
+    }
+
+    process.env["X_OAUTH1_CREDENTIAL"] = JSON.stringify({
+      apiKey: "api-key",
+      apiSecret: "api-secret",
+      accessToken: "access-token",
+      accessTokenSecret: "access-token-secret",
+    });
+    process.env["X_ACCESS_TOKEN"] = "conflicting-token";
+    expect(() => x({} as BaseEnv)).toThrow(/does not allow/);
   });
 });

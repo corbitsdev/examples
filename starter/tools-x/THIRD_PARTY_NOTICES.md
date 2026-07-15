@@ -1,7 +1,8 @@
 # Third-party notices
 
-The request and error-handling behavior in `src/client.ts` was informed by the
-official [xdevplatform/xurl](https://github.com/xdevplatform/xurl) project. The
+The request, error-handling, and OAuth1 signing behavior in `src/client.ts` and
+`src/oauth1.ts` was informed by the official
+[xdevplatform/xurl](https://github.com/xdevplatform/xurl) project. The
 TypeScript implementation in this package was written independently; no Go
 source was copied.
 
