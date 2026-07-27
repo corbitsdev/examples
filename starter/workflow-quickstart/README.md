@@ -20,33 +20,28 @@ first. [`src/cli.ts`](./src/cli.ts) is just the entry point.
 
 ## Setup
 
-`@intx/workflow` is not on npm yet, so this example consumes `@intx/*`
-from the `interchange` checkout vendored as a git submodule at the repo
-root, resolved through the root `package.json` bun workspace. From the
-repo root:
+`@intx/*` come from npm, pinned at `0.2.2` through the root
+`package.json` catalog. From the repo root:
 
 ```bash
-git submodule update --init interchange
 bun install
 ```
 
-Run from inside this directory (or the repo root) so `@intx/*` resolve
-to the submodule.
-
 ## Running
+
+Configure a provider first — see [Providers](#providers) below.
 
 ```bash
 cd starter/workflow-quickstart
-export ANTHROPIC_API_KEY=sk-...
 bun run start "the rings of Saturn"
 ```
 
 ```
-workflow workflow-quickstart · anthropic/claude-sonnet-4-6
+workflow workflow-quickstart · openai-compatible/<the model you configured>
   → step draft (agent draft) running…
-  ✓ step draft done (312 chars)
+  ✓ step draft done (475 chars)
   → step review (agent review) running…
-  ✓ step review done (88 chars)
+  ✓ step review done (180 chars)
 workflow workflow-quickstart · completed
 
 draft:  <a paragraph about the rings of Saturn>
@@ -58,19 +53,37 @@ to stdout.
 
 ## Providers
 
-The provider is picked from the environment — set a key and go. Auto
-order: Anthropic → OpenAI → Google.
+The endpoint, model and credential all come from the environment, and
+none of them is defaulted. With nothing configured the run exits
+immediately naming what to export.
 
-| Provider            | Key                                 | Default model       |
-| ------------------- | ----------------------------------- | ------------------- |
-| `anthropic`         | `ANTHROPIC_API_KEY`                 | `claude-sonnet-4-6` |
-| `openai`            | `OPENAI_API_KEY`                    | `gpt-4o-mini`       |
-| `openai-compatible` | `OPENAI_API_KEY` + `OPENAI_BASE_URL`| `gpt-4o-mini`       |
-| `google`            | `GOOGLE_API_KEY` / `GEMINI_API_KEY` | `gemini-2.0-flash`  |
+| Variable | Meaning |
+| --- | --- |
+| `INTX_BASE_URL` | Endpoint root. |
+| `INTX_MODEL` | Model id served there. Always required. |
+| `INTX_API_KEY` | Credential — a placeholder for servers that ignore it. |
+| `INTX_PROVIDER` | Wire protocol: `anthropic`, `openai`, `openai-compatible`, `google-genai`. Defaults to `openai-compatible`. |
+| `ANTHROPIC_API_KEY` `OPENAI_API_KEY` `GOOGLE_API_KEY` `GEMINI_API_KEY` | A vendor key implies that vendor's endpoint and protocol; `INTX_MODEL` is still required. |
 
-Force a provider with `INTX_PROVIDER`, override the model with
-`INTX_MODEL`. Setting `OPENAI_BASE_URL` points OpenAI at a compatible
-endpoint (Ollama, vLLM, OpenRouter, …). See [`src/source.ts`](./src/source.ts).
+A local server:
+
+```bash
+export INTX_BASE_URL=http://localhost:11434/v1   # e.g. Ollama
+export INTX_MODEL=qwen2.5vl:7b
+export INTX_API_KEY=ollama
+```
+
+A hosted vendor:
+
+```bash
+export OPENAI_API_KEY=sk-...
+export INTX_MODEL=gpt-4o-mini
+```
+
+No vendor branch anywhere in the runtime — `provider` only selects a
+wire-format adapter, and everything else is configuration passed
+through. See [`@corbits/example-kit`](../../packages/example-kit/src/inference.ts) and the
+[root README](../../README.md#inference-configured-never-assumed).
 
 Each step writes its context under `tmp/workflow-quickstart/`; delete it
 for a fresh start.

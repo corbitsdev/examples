@@ -1,0 +1,26 @@
+{
+  "name": "@corbits/example-multi-core-host",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "serve": "bun run src/serve.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@corbits/analytics-core": "workspace:*",
+    "@corbits/artifact-core": "workspace:*",
+    "@corbits/example-kit": "workspace:*",
+    "@corbits/mailbox-core": "workspace:*",
+    "@intx/types": "catalog:",
+    "drizzle-orm": "catalog:",
+    "hono": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

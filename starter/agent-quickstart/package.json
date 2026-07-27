@@ -11,17 +11,17 @@
     }
   },
   "scripts": {
-    "start": "bun run src/cli.ts"
+    "start": "bun run src/cli.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@intx/agent": "0.1.2"
+    "@corbits/example-kit": "workspace:*",
+    "@intx/agent": "catalog:",
+    "@intx/storage-isogit": "catalog:"
   },
-  "overrides": {
-    "@intx/inference": "0.1.2",
-    "@intx/types": "0.1.2",
-    "@intx/storage-isogit": "0.1.2",
-    "@intx/mime": "0.1.2",
-    "@intx/log": "0.1.2",
-    "@intx/crypto-node": "0.1.2"
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
   }
 }

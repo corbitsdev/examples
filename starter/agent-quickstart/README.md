@@ -1,76 +1,72 @@
 # agent-quickstart
 
 The smallest runnable [`@intx/agent`](https://www.npmjs.com/package/@intx/agent)
-program. Define an inference source, send a prompt, print the reply,
-close. Nothing else.
+program. Define an inference source, build the environment the agent runs in,
+send a prompt, print the reply, close. Nothing else.
 
-This example answers "what is the minimum amount of code I need to talk
-to an agent?" — read the body of [`src/cli.ts`](./src/cli.ts) and you
-have it. It targets the published `@intx/agent` **0.1.2** API.
+This example answers "what is the minimum amount of code I need to talk to an
+agent?" — read the body of [`src/cli.ts`](./src/cli.ts) and you have it.
+
+Inference comes entirely from the environment — see [Inference](#inference)
+below. There is no default provider or model.
 
 ## What it shows
 
-- Building an `InferenceSource` (`id`, `provider`, `baseURL`, `apiKey`,
-  `model`) from `ANTHROPIC_API_KEY`.
-- A single `createAgent({ contextDir, sources, defaultSource, systemPrompt, tools })`
-  call. Passing `contextDir` lets the agent manage an isogit-backed
-  context and audit store inside that directory for you.
-- One round trip through `agent.send(prompt)`, which returns the reply
-  text and the full turn that produced it.
-- Tearing the agent down with `agent.close()` so the per-directory lock
-  is released cleanly.
+- A `createAgent(definition, env)` call — the 0.2 shape. The **definition** is
+  what the agent *is* (id, system prompt, tools, the provider/model pairs it may
+  route to): portable data, no credentials. The **env** is what it runs against
+  (sources, storage, audit, authorization): host-supplied wiring. The split is
+  the point.
+- Building an `InferenceSource` (`id`, `provider`, `baseURL`, `apiKey`, `model`).
+  See [`@corbits/example-kit`](../../packages/example-kit/src/inference.ts).
+- One round trip through `agent.send(prompt)`.
+- Tearing the agent down with `agent.close()` so the per-directory lock is
+  released cleanly. Skip it and the next run blocks on a stale lock.
 
-Notably absent: tools, streaming, multi-turn state. `agent.send()` and
-`agent.close()` are the two methods you need; everything else on the
-`Agent` surface is layered on top.
+Notably absent: tools, streaming, multi-turn state. `send()` and `close()` are
+the two methods you need; everything else is layered on top.
 
-## Prerequisites
-
-- [Bun](https://bun.sh) — the agent packages ship TypeScript source and
-  the `start` script runs `bun run src/cli.ts`.
-- An `ANTHROPIC_API_KEY`.
+`audit` and `authorize` come from `@intx/agent/testing` as no-ops. Those are the
+two seams a real host fills with a durable audit log and a policy engine — using
+the test doubles here keeps the file you read about the agent, not the host.
 
 ## Running
 
 ```bash
-cd starter/agent-quickstart
-bun install
-export ANTHROPIC_API_KEY=sk-...
+bun install     # from the repo root
+# configure a provider — see Inference below
 bun run start "name three planets"
 ```
 
-The reply is written to stdout; the agent's context and audit history
-land in `tmp/agent-quickstart/context/` under the working directory.
-Re-running picks up the previous conversation — delete the directory
-for a fresh start:
+```
+agent agent-quickstart · openai-compatible/qwen2.5vl:7b
+Mercury, Venus, Earth
+```
+
+The progress line names whatever you configured; nothing above is a default.
+
+The reply goes to stdout; the progress line to stderr. The agent's context and
+audit history land in `tmp/agent-quickstart/context/`. Re-running picks up the
+previous conversation — `rm -rf tmp/agent-quickstart` for a fresh start.
+
+## Inference
+
+Configured from the environment, with no fallback — run it with nothing set and
+it exits naming what to export. Point it at a local server:
 
 ```bash
-rm -rf tmp/agent-quickstart
+export INTX_BASE_URL=http://localhost:11434/v1   # e.g. Ollama
+export INTX_MODEL=qwen2.5vl:7b
+export INTX_API_KEY=ollama
 ```
 
-Set `ANTHROPIC_MODEL` to use a model other than the default
-(`claude-sonnet-4-6`). Without `ANTHROPIC_API_KEY` the example prints a
-one-line message explaining what to set and exits non-zero.
+or at a hosted vendor:
 
-## A note on the `overrides` block
-
-`package.json` carries an `overrides` block pinning every `@intx/*`
-package to `0.1.2`:
-
-```json
-"overrides": {
-  "@intx/inference": "0.1.2",
-  "@intx/types": "0.1.2",
-  "@intx/storage-isogit": "0.1.2",
-  "@intx/mime": "0.1.2",
-  "@intx/log": "0.1.2",
-  "@intx/crypto-node": "0.1.2"
-}
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+export INTX_MODEL=claude-sonnet-4-6
 ```
 
-This works around a publishing quirk in the current release: each
-`@intx` package's manifest pins its siblings to `0.0.0`, a version that
-was never published, so a plain `npm install @intx/agent` fails with
-`ETARGET`. Every package *is* published at `0.1.2`, so forcing the whole
-graph to `0.1.2` resolves it. Once the `@intx` packages are republished
-with correct internal version ranges, this block can be removed.
+Same code path either way. Full variable table in the
+[root README](../../README.md#inference-configured-never-assumed); the resolver
+is [`@corbits/example-kit`](../../packages/example-kit/src/inference.ts).

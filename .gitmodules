@@ -1,3 +1,9 @@
-[submodule "interchange"]
-	path = interchange
-	url = https://github.com/faremeter/interchange.git
+[submodule "cores/mailbox"]
+	path = cores/mailbox
+	url = https://github.com/corbitsdev/corbits-mailbox.git
+[submodule "cores/artifacts"]
+	path = cores/artifacts
+	url = https://github.com/corbitsdev/corbits-artifacts.git
+[submodule "cores/analytics"]
+	path = cores/analytics
+	url = https://github.com/corbitsdev/corbits-analytics.git

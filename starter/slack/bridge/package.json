@@ -15,5 +15,13 @@
     "@slack/types": "2.21.1",
     "@slack/web-api": "7.17.0",
     "arktype": "catalog:"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
   }
 }

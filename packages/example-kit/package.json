@@ -1,0 +1,29 @@
+{
+  "name": "@corbits/example-kit",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./host": "./src/host.ts",
+    "./check": "./src/check.ts",
+    "./serve": "./src/serve.ts",
+    "./inference": "./src/inference.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@intx/db": "catalog:",
+    "@intx/hub-api": "catalog:",
+    "@intx/hub-sessions": "catalog:",
+    "@intx/log": "catalog:",
+    "hono": "catalog:",
+    "postgres": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

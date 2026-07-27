@@ -204,7 +204,7 @@ export function createApprovalSessions(opts: {
       stderr(`${SERVICE_NAME}: failed to post draft: ${errorMessage(error)}\n`);
       try {
         await pending.run.cancel(
-          "slack-bridge",
+          "supervisor-operator",
           "failed to post approval controls",
         );
       } catch (cancelError) {

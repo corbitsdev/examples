@@ -11,11 +11,17 @@
     }
   },
   "scripts": {
-    "start": "bun run src/cli.ts"
+    "start": "bun run src/cli.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@intx/agent": "workspace:*",
-    "@intx/storage-isogit": "workspace:*",
-    "@intx/workflow": "workspace:*"
+    "@intx/agent": "catalog:",
+    "@intx/storage-isogit": "catalog:",
+    "@intx/workflow": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
   }
 }

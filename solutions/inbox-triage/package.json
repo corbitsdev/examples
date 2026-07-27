@@ -1,0 +1,26 @@
+{
+  "name": "@corbits/example-inbox-triage",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@corbits/example-kit": "workspace:*",
+    "@corbits/mailbox-core": "workspace:*",
+    "@intx/agent": "catalog:",
+    "@intx/log": "catalog:",
+    "@intx/storage-isogit": "catalog:",
+    "@intx/types": "catalog:",
+    "drizzle-orm": "catalog:",
+    "hono": "catalog:"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:"
+  }
+}

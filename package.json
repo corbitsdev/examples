@@ -2,22 +2,56 @@
   "name": "@corbits/examples",
   "private": true,
   "workspaces": [
-    "interchange/packages/*",
+    "packages/*",
+    "cores/*/packages/*",
+    "starter/agent-quickstart",
+    "starter/workflow-quickstart",
+    "starter/workflow-approval-flow",
     "starter/slack/bridge",
     "starter/slack/agent",
     "starter/slack/workflows/approval-flow",
-    "starter/workflow-approval-flow",
-    "starter/workflow-quickstart"
+    "modules/mailbox-inbox",
+    "modules/artifact-library",
+    "modules/analytics-rollups",
+    "modules/multi-core-host",
+    "modules/shared-schema-host",
+    "solutions/inbox-triage"
   ],
+  "scripts": {
+    "postinstall": "bun run build:cores",
+    "build:cores": "bun run --filter '@corbits/*-core' build",
+    "typecheck": "bun run --filter '@corbits/example-*' typecheck",
+    "modules": "bun run --filter '@corbits/example-mailbox-inbox' --filter '@corbits/example-artifact-library' --filter '@corbits/example-analytics-rollups' --filter '@corbits/example-multi-core-host' --filter '@corbits/example-shared-schema-host' start"
+  },
   "catalog": {
+    "@intx/agent": "0.2.2",
+    "@intx/db": "0.2.2",
+    "@intx/hub-api": "0.2.2",
+    "@intx/hub-sessions": "0.2.2",
+    "@intx/log": "0.2.2",
+    "@intx/mime": "0.2.2",
+    "@intx/storage-isogit": "0.2.2",
+    "@intx/types": "0.2.2",
+    "@intx/workflow": "0.2.2",
+    "@types/bun": "^1.3.0",
+    "@types/node": "22.10.5",
     "@types/semver": "^7.7.1",
     "arktype": "^2.1.29",
     "better-auth": "^1.4.18",
     "drizzle-orm": "^0.45.1",
     "hono": "^4.11.9",
+    "hono-openapi": "1.3.1",
     "isomorphic-git": "^1.27.2",
+    "postgres": "3.4.9",
     "semver": "^7.7.2",
     "ssri": "^12.0.0",
-    "tar": "^7.5.1"
+    "tar": "^7.5.1",
+    "typescript": "5.7.2",
+    "@types/ssri": "^7.1.5"
+  },
+  "devDependencies": {
+    "@types/bun": "catalog:",
+    "@types/ssri": "catalog:",
+    "typescript": "catalog:"
   }
 }

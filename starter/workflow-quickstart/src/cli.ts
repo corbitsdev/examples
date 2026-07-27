@@ -17,7 +17,7 @@ import { join } from "node:path";
 
 import { runLocal } from "@intx/workflow";
 
-import { resolveSource } from "./source";
+import { resolveSource } from "@corbits/example-kit/inference";
 import {
   WORKFLOW_ID,
   createInvokeStep,
@@ -44,9 +44,9 @@ export async function main(
     return 1;
   }
 
-  // Pick a provider from the environment — Anthropic, OpenAI, an
-  // OpenAI-compatible endpoint, or Google Gemini. See ./source.ts; the
-  // workflow never names a vendor.
+  // Endpoint, model and credential all come from the environment — see
+  // ./source.ts. The workflow never names a vendor, and nothing here is
+  // defaulted: an unconfigured run fails with a message, not a timeout.
   const resolved = resolveSource(env);
   if (resolved.error !== undefined) {
     stderr(resolved.error);

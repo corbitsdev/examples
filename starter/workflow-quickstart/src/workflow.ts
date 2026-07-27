@@ -24,7 +24,7 @@ import {
   type WorkflowDefinition,
 } from "@intx/workflow";
 
-import type { Source } from "./source";
+import type { Source } from "@corbits/example-kit/inference";
 
 export const WORKFLOW_ID = "workflow-quickstart";
 
