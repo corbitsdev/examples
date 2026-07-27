@@ -1,5 +1,6 @@
 node_modules/
 tmp/
+bun.lock
 *.log
 .env
 .env.*
