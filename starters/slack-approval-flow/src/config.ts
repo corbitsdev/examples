@@ -3,11 +3,8 @@ import { join } from "node:path";
 import {
   resolveSlackConnection,
   type SlackConnectionConfig,
-} from "@corbits/example-slack-bridge";
-import {
-  resolveSource,
-  type Source,
-} from "@corbits/example-workflow-approval-flow";
+} from "./slack/connection";
+import { resolveSource, type Source } from "./source";
 
 export const SERVICE_NAME = "slack-approval-flow";
 

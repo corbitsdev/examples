@@ -1,20 +1,19 @@
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 
+import { type Write } from "./slack/bridge";
+import { postMessage, truncateForSlack } from "./slack/messages";
+import {
+  createSlackThreadSessionStore,
+  safePathSegment,
+  slackThreadKey,
+  type SlackThreadRef,
+} from "./slack/session";
 import {
   APPROVAL_SIGNAL,
   createInvokeStep,
   defineApprovalFlow,
-} from "@corbits/example-workflow-approval-flow";
-import {
-  createSlackThreadSessionStore,
-  postMessage,
-  safePathSegment,
-  slackThreadKey,
-  truncateForSlack,
-  type SlackThreadRef,
-  type Write,
-} from "@corbits/example-slack-bridge";
+} from "./workflow";
 import {
   runLocal,
   type WorkflowAuthorizeFn,
@@ -203,8 +202,12 @@ export function createApprovalSessions(opts: {
     } catch (error) {
       stderr(`${SERVICE_NAME}: failed to post draft: ${errorMessage(error)}\n`);
       try {
+        // `cancel` takes a CancelOrigin, a closed set — "slack-bridge"
+        // is not one of them. The bridge cancelling on behalf of the
+        // operator is "supervisor-operator"; the detail lives in the
+        // reason.
         await pending.run.cancel(
-          "slack-bridge",
+          "supervisor-operator",
           "failed to post approval controls",
         );
       } catch (cancelError) {
