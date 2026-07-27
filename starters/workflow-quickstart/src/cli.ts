@@ -7,11 +7,6 @@
 // runLocal supplies in-memory implementations of the repo store,
 // scheduler, signal channel, and blob substrate, then drives the same
 // runtime body a production host would.
-//
-// NOTE ON DEPENDENCIES: @intx/workflow is not published to npm yet, so
-// this example resolves @intx/* from the `interchange` git submodule at
-// the repo root, via a bun workspace. See the README. Once it ships to
-// npm this swaps to a normal dependency.
 
 import { join } from "node:path";
 
