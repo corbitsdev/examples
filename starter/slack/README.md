@@ -11,14 +11,7 @@ git submodule update --init interchange
 bun install
 ```
 
-Pick an example and copy its env file:
-
-```bash
-cd starter/slack/agent
-cp .env.example .env
-```
-
-or:
+Copy the env file:
 
 ```bash
 cd starter/slack/workflows/approval-flow
@@ -49,8 +42,11 @@ Event Subscriptions, Slash Commands, and Interactivity at
 
 | Example | Path | Try in Slack |
 | --- | --- | --- |
-| Agent | `starter/slack/agent` | `@interchange explain this channel` |
 | Approval workflow | `starter/slack/workflows/approval-flow` | `@interchange-workflow write a launch note` |
+
+The direct Slack agent example now lives at
+[`starters/slack-agent`](../../starters/slack-agent) and is
+self-contained — it has its own setup instructions.
 
 ## Workflow Shape
 
@@ -68,7 +64,6 @@ posted back into the same Slack thread.
 | Path | Purpose |
 | --- | --- |
 | `bridge/` | Shared Slack plumbing |
-| `agent/` | Direct Slack agent example |
 | `workflows/approval-flow/` | Slack approval workflow example |
 
 ## Providers
