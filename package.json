@@ -2,8 +2,7 @@
   "name": "@corbits/examples",
   "private": true,
   "workspaces": [
-    "interchange/packages/*",
-    "starter/workflow-approval-flow"
+    "interchange/packages/*"
   ],
   "catalog": {
     "@types/semver": "^7.7.1",

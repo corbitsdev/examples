@@ -353,15 +353,6 @@
         "arktype": "catalog:",
       },
     },
-    "starter/workflow-approval-flow": {
-      "name": "@corbits/example-workflow-approval-flow",
-      "version": "0.1.0",
-      "dependencies": {
-        "@intx/agent": "workspace:*",
-        "@intx/storage-isogit": "workspace:*",
-        "@intx/workflow": "workspace:*",
-      },
-    },
   },
   "catalog": {
     "@types/semver": "^7.7.1",
@@ -396,8 +387,6 @@
     "@better-auth/utils": ["@better-auth/utils@0.4.2", "", { "dependencies": { "@noble/hashes": "^2.0.1" } }, "sha512-AUxrvu+HaaODsUyzDxFgwd/8RZ1yZaYo42LXKSrU2oGgR38pS1ij8nqQKNgtTWoYGpNevNXtCfgTy6loHveW9A=="],
 
     "@better-fetch/fetch": ["@better-fetch/fetch@1.3.1", "", {}, "sha512-ABkD1WhyfPZprKRQI3bhATjeiFuNWC9PXhfGWqL+sg/gKrM977oFrYkdb4msM3hgUGonr7KlOsOFT5TU2rht9g=="],
-
-    "@corbits/example-workflow-approval-flow": ["@corbits/example-workflow-approval-flow@workspace:starter/workflow-approval-flow"],
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 
