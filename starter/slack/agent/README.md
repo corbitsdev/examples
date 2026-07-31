@@ -1,31 +1,30 @@
-# Slack agent
+# Interchange agent for Slack
 
-A direct Slack agent example built on the shared `../bridge` transport.
+A minimal Interchange agent on Slack, connected through Corbits Tag.
 
-This example owns the agent behavior:
+## Run
 
-- defines one demo `AgentDefinition`
-- keeps one agent context per Slack thread under `tmp/slack-agent/context`
-- responds to app mentions, DMs, Slack Assistant messages, follow-up thread
-  replies, and `/demo-agent`
-
-The shared bridge owns Slack plumbing. This example owns the agent brain.
-
-Use the top-level [Slack starter README](../README.md) for setup, Slack app
-configuration, and provider selection.
-
-## Running
+From the repository root:
 
 ```bash
+git submodule update --init interchange corbits-tag
+bun install
 cd starter/slack/agent
+cp .env.example .env
 bun run start
 ```
 
-Then use it from Slack:
+Import `manifest.slack.json` into a dedicated Slack app. Set its Events API
+Request URL to:
 
 ```text
-@interchange explain what this channel is about
-DM interchange: write a short standup update
-Open the Slack Assistant pane and ask interchange a question
-/demo-agent summarize this channel
+https://<public-host>/api/tag/slack/webhook
 ```
+
+Install the app, invite `@interchange` to a channel, then:
+
+1. Mention it: `@interchange write a short standup update`.
+2. Reply without mentioning it in the same thread to continue the conversation.
+
+Thread subscriptions use process-local memory and reset when the process restarts.
+Agent conversation contexts remain under `tmp/slack-agent/context`.

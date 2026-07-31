@@ -1,242 +1,121 @@
-// slack-agent: a Slack bridge that routes events to one example @intx/agent.
-
-import { existsSync } from "node:fs";
+/**
+ * Run one Interchange agent behind Corbits Tag's Slack HTTP ingress.
+ *
+ * Corbits Tag owns Slack signature verification, event normalization, thread
+ * subscriptions, and threaded replies. This file owns the Interchange agent:
+ * its inference source, per-thread context, and the callback that turns a
+ * normalized Slack message into an agent reply.
+ */
+import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
+import { createMemoryState } from "@chat-adapter/state-memory";
 import {
-  cleanSlackText,
-  postMessage,
-  resolveSlackConnection,
-  startSlackBridge,
-  truncateForSlack,
-  type SlackConnectionConfig,
-  type SlackEvent,
-  type SlackAssistantMessage,
-  type SlashCommand,
-  type Write,
-} from "@corbits/example-slack-bridge";
-import { defineAgent, type AuthorizeFn } from "@intx/agent";
+  mountSlackTag,
+  type TagEvent,
+  type TagThread,
+} from "@corbits/tag-slack";
+import {
+  createAgent,
+  createDefaultDirectorRegistry,
+  defineAgent,
+  type Agent,
+  type BaseEnv,
+} from "@intx/agent";
+import { createIsogitStore } from "@intx/storage-isogit";
+import { Hono } from "hono";
 
-import { agentContextDir, runAgentTurn } from "./agent";
-import { resolveSource, type Source } from "./source";
+const signingSecret = process.env.SLACK_SIGNING_SECRET;
+if (!signingSecret) throw new Error("SLACK_SIGNING_SECRET is required");
 
-const EXAMPLE_NAME = "slack-agent";
-const DEMO_AGENT_PROMPT =
-  "You are interchange, a concise Corbits demo agent replying in Slack. Keep replies useful, direct, and easy to read in a thread.";
+const botToken = process.env.SLACK_BOT_TOKEN;
+if (!botToken) throw new Error("SLACK_BOT_TOKEN is required");
 
-export type SlackAgentConfig = SlackConnectionConfig & {
-  source: Source;
-  contextRoot: string;
-  authorize: AuthorizeFn;
+const apiKey = process.env.ANTHROPIC_API_KEY;
+if (!apiKey) throw new Error("ANTHROPIC_API_KEY is required");
+
+const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-6";
+const source = {
+  id: `anthropic:${model}`,
+  provider: "anthropic",
+  baseURL: "https://api.anthropic.com",
+  apiKey,
+  model,
 };
+const definition = defineAgent({
+  id: "slack-agent",
+  systemPrompt:
+    "You are interchange, a concise and helpful agent replying in Slack.",
+  tools: [],
+  capabilities: [],
+  inference: { sources: [source] },
+});
 
-export type MainOptions = {
-  stdout?: Write;
-  stderr?: Write;
-  contextRoot?: string;
-};
+// Interchange conversation context is separate from the Chat SDK thread state
+// configured below. Each Slack thread gets one agent and one isogit-backed
+// context directory, so its model conversation survives process restarts.
+const contextRoot = join(process.cwd(), "tmp", "slack-agent", "context");
+const agents = new Map<string, Promise<Agent>>();
 
-type AgentReplyRequest = {
-  prompt: string;
-  channel: string;
-  threadTs?: string;
-  conversationKey: string;
-};
+function agentFor(threadId: string): Promise<Agent> {
+  const key = threadId.replace(/[^a-zA-Z0-9_.-]+/g, "_").slice(0, 180);
+  let agent = agents.get(key);
 
-export async function main(
-  argv: string[],
-  env: NodeJS.ProcessEnv,
-  opts: MainOptions = {},
-): Promise<number> {
-  const stdout = opts.stdout ?? ((text: string) => void process.stdout.write(text));
-  const stderr = opts.stderr ?? ((text: string) => void process.stderr.write(text));
-
-  if (argv.includes("--help") || argv.includes("-h")) {
-    stdout(helpText());
-    return 0;
-  }
-
-  const config = resolveConfig(env, opts.contextRoot);
-  if (config.error !== undefined) {
-    stderr(config.error);
-    return 1;
-  }
-
-  try {
-    await startSlackBridge({
-      serviceName: EXAMPLE_NAME,
-      port: config.port,
-      signingSecret: config.signingSecret,
-      botToken: config.botToken,
-      appToken: config.appToken,
-      stdout,
-      stderr,
-      onEvent: (teamId, event) => {
-        const request = requestFromSlackEvent(teamId, event, config);
-        if (request !== undefined) void replyWithAgent(config, request, stderr);
-      },
-      onSlashCommand: (command) => {
-        const request = requestFromSlashCommand(command);
-        if (request !== undefined) void replyWithAgent(config, request, stderr);
-      },
-      onAssistantUserMessage: (message) => {
-        void replyWithAgent(config, requestFromAssistantMessage(message), stderr);
-      },
-    });
-  } catch (error) {
-    stderr(`${error instanceof Error ? error.message : String(error)}\n`);
-    return 1;
-  }
-
-  return await new Promise<never>(() => undefined);
-}
-
-function helpText(): string {
-  return [
-    "usage: bun run start",
-    "",
-    "Required env:",
-    "  SLACK_SIGNING_SECRET",
-    "  SLACK_BOT_TOKEN",
-    "  one provider key: ANTHROPIC_API_KEY, OPENAI_API_KEY, or GOOGLE_API_KEY",
-    "",
-  ].join("\n");
-}
-
-function requestFromSlashCommand(
-  command: SlashCommand,
-): AgentReplyRequest | undefined {
-  const prompt = command.text?.trim() ?? "";
-  const channel = command.channel_id;
-  if (channel === undefined || prompt === "") return undefined;
-
-  return {
-    prompt,
-    channel,
-    conversationKey: [
-      command.team_id,
-      command.channel_id,
-      command.user_id,
-      "slash",
-    ].join("-"),
-  };
-}
-
-function requestFromAssistantMessage(
-  message: SlackAssistantMessage,
-): AgentReplyRequest {
-  return {
-    prompt: message.prompt,
-    channel: message.channel,
-    threadTs: message.threadTs,
-    conversationKey: [
-      message.teamId,
-      message.channel,
-      message.threadTs,
-      message.userId ?? "assistant",
-    ].join("-"),
-  };
-}
-
-function requestFromSlackEvent(
-  teamId: string | undefined,
-  event: SlackEvent,
-  config: SlackAgentConfig,
-): AgentReplyRequest | undefined {
-  const channel = event.channel;
-  const prompt = cleanSlackText(event.text ?? "");
-  if (channel === undefined || prompt === "") return undefined;
-  if (!shouldHandleSlackEvent(teamId, event, config)) return undefined;
-
-  const threadTs = event.thread_ts ?? event.ts;
-  return {
-    prompt,
-    channel,
-    threadTs,
-    conversationKey: [teamId, channel, threadTs ?? event.user ?? "event"].join("-"),
-  };
-}
-
-function shouldHandleSlackEvent(
-  teamId: string | undefined,
-  event: SlackEvent,
-  config: SlackAgentConfig,
-): boolean {
-  if (event.bot_id !== undefined || event.subtype !== undefined) return false;
-  if (event.type === "app_mention") return true;
-  if (event.type !== "message") return false;
-
-  const channel = event.channel ?? "";
-  if (channel.startsWith("D")) return true;
-
-  const threadTs = event.thread_ts;
-  if (threadTs === undefined) return false;
-
-  const conversationKey = [teamId, channel, threadTs].join("-");
-  return existsSync(agentContextDir(config.contextRoot, conversationKey));
-}
-
-async function replyWithAgent(
-  config: SlackAgentConfig,
-  request: AgentReplyRequest,
-  stderr: Write,
-): Promise<void> {
-  try {
-    const agent = defineAgent({
-      id: "slack-demo-agent",
-      systemPrompt: DEMO_AGENT_PROMPT,
-      tools: [],
-      capabilities: [],
-      inference: { sources: [config.source] },
-    });
-    const text = await runAgentTurn(
-      config,
-      agent,
-      request.prompt,
-      request.conversationKey,
+  if (!agent) {
+    const contextDir = join(contextRoot, key);
+    mkdirSync(contextDir, { recursive: true });
+    agent = createIsogitStore(contextDir).then((storage) =>
+      createAgent(definition, {
+        sources: [source],
+        defaultSource: source.id,
+        storage,
+        workdir: contextDir,
+        audit: storage,
+        authorize: async () => ({
+          effect: "deny",
+          matchingGrants: [],
+          resolvedBy: null,
+        }),
+        directors: createDefaultDirectorRegistry(),
+      } satisfies BaseEnv),
     );
-    await postMessage(config.botToken, {
-      channel: request.channel,
-      thread_ts: request.threadTs,
-      text: truncateForSlack(text),
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    stderr(`${EXAMPLE_NAME}: ${message}\n`);
-    await postMessage(config.botToken, {
-      channel: request.channel,
-      thread_ts: request.threadTs,
-      text: `I hit an error while answering: ${message}`,
-    }).catch(() => undefined);
+    agents.set(key, agent);
   }
+
+  return agent;
 }
 
-function resolveConfig(
-  env: NodeJS.ProcessEnv,
-  contextRootOverride?: string,
-):
-  | (SlackAgentConfig & { error?: undefined })
-  | { error: string } {
-  const slack = resolveSlackConnection(env);
-  if (slack.error !== undefined) return { error: slack.error };
+const answer = async (event: TagEvent, thread: TagThread) => {
+  const agent = await agentFor(event.threadId);
+  const { reply } = await agent.send(event.text);
+  await thread.post(reply);
+};
 
-  const sourceResult = resolveSource(env);
-  if (sourceResult.error !== undefined) return { error: sourceResult.error };
+// Chat SDK state stores thread subscriptions, deduplication keys, locks,
+// queues, and cache. Memory keeps this starter dependency-free, but it is
+// process-local: subscriptions reset on restart and locks do not coordinate
+// multiple instances. Replace it with any Chat SDK StateAdapter—Redis,
+// ioredis, PostgreSQL, Cloudflare Agents, or your own implementation—without
+// changing the Interchange agent or the Corbits Tag callbacks above.
+//
+// Vercel Chat SDK state-adapter docs:
+// https://chat-sdk.dev/docs/state-adapters
+const threadState = createMemoryState();
 
-  return {
-    ...slack.config,
-    source: sourceResult.source,
-    authorize: denyAgentTools,
-    contextRoot:
-      contextRootOverride ?? join(process.cwd(), "tmp", EXAMPLE_NAME, "context"),
-  };
+const app = new Hono();
+const { path } = mountSlackTag(app, {
+  userName: "interchange",
+  state: threadState,
+  slack: { botToken, signingSecret },
+  onTag: answer,
+  onThreadMessage: answer,
+  thinkingIndicator: true,
+});
+
+const portText = process.env.PORT ?? "3001";
+const port = Number(portText);
+if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
+  throw new Error(`PORT="${portText}" is not a valid port`);
 }
-
-async function denyAgentTools(): ReturnType<AuthorizeFn> {
-  return { effect: "deny", matchingGrants: [], resolvedBy: null };
-}
-
-if (import.meta.main) {
-  const code = await main(process.argv.slice(2), process.env);
-  if (code !== 0) process.exit(code);
-}
+Bun.serve({ port, fetch: app.fetch });
+console.log(`Interchange agent listening on http://localhost:${port}${path}`);

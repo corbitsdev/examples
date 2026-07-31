@@ -4,26 +4,19 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
-    },
-    "./agent": {
-      "types": "./src/agent.ts",
-      "default": "./src/agent.ts"
-    },
-    "./source": {
-      "types": "./src/source.ts",
-      "default": "./src/source.ts"
-    }
-  },
   "scripts": {
-    "start": "bun run src/cli.ts"
+    "start": "bun run src/cli.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@corbits/example-slack-bridge": "workspace:*",
+    "@chat-adapter/state-memory": "^4.34.0",
+    "@corbits/tag-slack": "workspace:*",
     "@intx/agent": "workspace:*",
-    "@intx/storage-isogit": "workspace:*"
+    "@intx/storage-isogit": "workspace:*",
+    "hono": "^4.12.31"
+  },
+  "devDependencies": {
+    "@types/bun": "1.3.9",
+    "typescript": "5.9.3"
   }
 }

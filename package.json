@@ -2,6 +2,7 @@
   "name": "@corbits/examples",
   "private": true,
   "workspaces": [
+    "corbits-tag/packages/*",
     "interchange/packages/*",
     "starter/slack/bridge",
     "starter/slack/agent",

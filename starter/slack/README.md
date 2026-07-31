@@ -2,77 +2,62 @@
 
 Run an Interchange agent or workflow from Slack.
 
-## Run One
+## Install
 
-From the repo root:
+From the repository root:
 
 ```bash
-git submodule update --init interchange
+git submodule update --init interchange corbits-tag
 bun install
 ```
 
-Pick an example and copy its env file:
+## Interchange agent
 
 ```bash
 cd starter/slack/agent
 cp .env.example .env
+bun run start
 ```
 
-or:
+Import `agent/manifest.slack.json`, set the Events API Request URL to
+`https://<public-host>/api/tag/slack/webhook`, and install the app. Mention
+`@interchange`, then reply in the same thread to continue the conversation.
+
+### Agent environment
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `SLACK_SIGNING_SECRET` | Yes | Verify requests from Slack's Events API |
+| `SLACK_BOT_TOKEN` | Yes | Read messages and post replies |
+| `ANTHROPIC_API_KEY` | Yes | Run the Interchange agent model |
+| `ANTHROPIC_MODEL` | No | Override the default Anthropic model |
+| `PORT` | No | Change the HTTP server port from `3001` |
+| `PUBLIC_BASE_URL` | No | Record the public tunnel URL used to configure Slack |
+
+`agent/.env.example` also keeps commented extension options for Socket Mode
+(`SLACK_APP_TOKEN`), OpenAI (`OPENAI_API_KEY`, `OPENAI_BASE_URL`), Google
+(`GOOGLE_API_KEY`), and automatic provider selection (`INTX_PROVIDER`,
+`INTX_MODEL`). The minimal agent does not read those options; enable the
+matching transport or provider in `cli.ts` before using them.
+
+## Workflow
 
 ```bash
 cd starter/slack/workflows/approval-flow
 cp .env.example .env
-```
-
-Fill in:
-
-```bash
-SLACK_SIGNING_SECRET=...
-SLACK_APP_TOKEN=xapp-...
-SLACK_BOT_TOKEN=xoxb-...
-ANTHROPIC_API_KEY=...
-```
-
-Import the example's `manifest.slack.json` in Slack, enable Socket Mode,
-install or reinstall the app, then run:
-
-```bash
 bun run start
 ```
 
-Socket Mode does not need a public tunnel. Without Socket Mode, point Slack
-Event Subscriptions, Slash Commands, and Interactivity at
-`https://your-public-tunnel.example/slack/events`.
-
-## Examples
-
-| Example | Path | Try in Slack |
-| --- | --- | --- |
-| Agent | `starter/slack/agent` | `@interchange explain this channel` |
-| Approval workflow | `starter/slack/workflows/approval-flow` | `@interchange-workflow write a launch note` |
-
-## Workflow Shape
-
-The approval workflow follows this path:
+Import its `manifest.slack.json`, enable Socket Mode, and provide
+`SLACK_APP_TOKEN` with the other variables in its `.env.example`.
 
 ```text
 Slack message -> draft -> approval buttons -> approve/reject -> final reply
 ```
 
-Approve sends a workflow signal. Reject cancels the run. The final result is
-posted back into the same Slack thread.
-
-## Where Things Live
+## Packages
 
 | Path | Purpose |
 | --- | --- |
-| `bridge/` | Shared Slack plumbing |
-| `agent/` | Direct Slack agent example |
-| `workflows/approval-flow/` | Slack approval workflow example |
-
-## Providers
-
-Use whichever provider key you have configured: `ANTHROPIC_API_KEY`,
-`OPENAI_API_KEY`, or `GOOGLE_API_KEY`. Set `INTX_PROVIDER` and `INTX_MODEL` to
-force a provider or model.
+| `agent/` | Minimal Interchange agent with HTTP mention and thread follow-up |
+| `workflows/approval-flow/` | Interactive Slack workflow |
