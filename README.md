@@ -6,6 +6,16 @@
 
 Enjoy our curated collection of examples and solutions. Use these patterns to build your own robust and scalable applications on Corbits.
 
+## What is Corbits?
+
+[Corbits](https://corbits.dev) is a platform for building and running production agents. These examples show the patterns we recommend for building on it.
+
+## What is Interchange?
+
+[Interchange](https://github.com/faremeter/interchange) is an open source framework for building durable, production-grade agents and agentic workflows. Most of the starters in this repo are built on its `@intx/*` packages.
+
+## Examples
+
 - [Starter](/starter) – Functional applications which can act as a starting point
 - [Agents](/agents) – Agent and skill definitions you can drop into your own tooling
 
@@ -27,7 +37,6 @@ Every example should include:
 ## Read the Docs
 
 - [Corbits Docs](https://docs.corbits.dev)
-- [Faremeter Docs](https://docs.faremeter.xyz)
 
 If you have any questions or suggestions about the docs, feel free to [open a discussion](https://github.com/corbitsdev/examples/discussions), or [submit a PR](https://github.com/corbitsdev/examples/pulls) with your suggestions!
 
