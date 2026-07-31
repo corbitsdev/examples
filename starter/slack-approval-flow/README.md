@@ -34,7 +34,7 @@ runs.
 ## Setup
 
 ```bash
-cd starters/slack-approval-flow
+cd starter/slack-approval-flow
 bun install
 cp .env.example .env
 ```

@@ -48,7 +48,7 @@ Notably absent: tools, streaming, multi-turn state. `agent.send()` and
 ## Running
 
 ```bash
-cd starters/agent-quickstart
+cd starter/agent-quickstart
 bun install
 export ANTHROPIC_API_KEY=sk-...
 bun run start "name three planets"

@@ -26,7 +26,7 @@ at `0.2.2`; nothing else in this repository is involved. Copy the
 directory anywhere and it still works.
 
 ```bash
-cd starters/workflow-approval-flow
+cd starter/workflow-approval-flow
 bun install
 ```
 

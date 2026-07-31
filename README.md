@@ -6,11 +6,12 @@
 
 Enjoy our curated collection of examples and solutions. Use these patterns to build your own robust and scalable applications on Corbits.
 
-- [Starters](/starters) – Functional applications which can act as a starting point
+- [Starter](/starter) – Functional applications which can act as a starting point
+- [Agents](/agents) – Agent and skill definitions you can drop into your own tooling
 
 ## Adding a new example
 
-Each example lives in its own directory under `starters/` and must be
+Each example lives in its own directory under `starter/` or `agents/` and must be
 self-contained: a reader copies that one directory, runs `bun install`,
 and it works. No imports from other examples, no shared helper package,
 no submodule. Duplication between examples is expected and fine — it is

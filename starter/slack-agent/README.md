@@ -26,7 +26,7 @@ not a package boundary — see the note on duplication at the bottom.
 ## Setup
 
 ```bash
-cd starters/slack-agent
+cd starter/slack-agent
 bun install
 cp .env.example .env
 ```
