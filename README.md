@@ -24,8 +24,10 @@ Enjoy our curated collection of examples and solutions. Use these patterns to bu
 Each example lives in its own directory under `starter/` or `agents/` and must be
 self-contained: a reader copies that one directory, runs `bun install`,
 and it works. No imports from other examples, no shared helper package,
-no submodule. Duplication between examples is expected and fine — it is
-the price of a starter you can actually copy.
+no top-level submodule. Duplication between examples is expected and fine —
+it is the price of a starter you can actually copy. Prefer published registry
+packages; if an example truly needs a submodule, it lives inside that
+example's directory, never at the repo root.
 
 Every example should include:
 
