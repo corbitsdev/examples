@@ -1,8 +1,8 @@
+import { type Write } from "./slack/bridge";
 import {
   createSlackWorkflowAdapter,
   type SlackWorkflowAdapter,
-  type Write,
-} from "@corbits/example-slack-bridge";
+} from "./slack/workflow-adapter";
 
 import { APPROVE_ACTION_ID, REJECT_ACTION_ID } from "./blocks";
 import type { SlackWorkflowConfig } from "./config";

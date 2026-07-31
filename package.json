@@ -3,8 +3,6 @@
   "private": true,
   "workspaces": [
     "interchange/packages/*",
-    "starter/slack/bridge",
-    "starter/slack/workflows/approval-flow",
     "starter/workflow-approval-flow"
   ],
   "catalog": {

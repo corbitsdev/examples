@@ -1,6 +1,6 @@
 // Slack approval-flow example.
 
-import { startSlackBridge } from "@corbits/example-slack-bridge";
+import { startSlackBridge } from "./slack/bridge";
 
 import { createApprovalWorkflowAdapter } from "./adapter";
 import { resolveConfig, SERVICE_NAME } from "./config";
