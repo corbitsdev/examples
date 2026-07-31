@@ -353,15 +353,6 @@
         "arktype": "catalog:",
       },
     },
-    "starter/slack/agent": {
-      "name": "@corbits/example-slack-agent",
-      "version": "0.1.0",
-      "dependencies": {
-        "@corbits/example-slack-bridge": "workspace:*",
-        "@intx/agent": "workspace:*",
-        "@intx/storage-isogit": "workspace:*",
-      },
-    },
     "starter/slack/bridge": {
       "name": "@corbits/example-slack-bridge",
       "version": "0.1.0",
@@ -433,8 +424,6 @@
     "@better-auth/utils": ["@better-auth/utils@0.4.2", "", { "dependencies": { "@noble/hashes": "^2.0.1" } }, "sha512-AUxrvu+HaaODsUyzDxFgwd/8RZ1yZaYo42LXKSrU2oGgR38pS1ij8nqQKNgtTWoYGpNevNXtCfgTy6loHveW9A=="],
 
     "@better-fetch/fetch": ["@better-fetch/fetch@1.3.1", "", {}, "sha512-ABkD1WhyfPZprKRQI3bhATjeiFuNWC9PXhfGWqL+sg/gKrM977oFrYkdb4msM3hgUGonr7KlOsOFT5TU2rht9g=="],
-
-    "@corbits/example-slack-agent": ["@corbits/example-slack-agent@workspace:starter/slack/agent"],
 
     "@corbits/example-slack-approval-flow": ["@corbits/example-slack-approval-flow@workspace:starter/slack/workflows/approval-flow"],
 
