@@ -14,6 +14,6 @@ This package owns only the Slack SDK boundary:
   active work per thread
 
 It does not know about specific agents, workflow definitions, approval signals,
-or terminal states. `starter/slack/agent` and
-`starter/slack/workflows/approval-flow` both consume this package and decide
-what each Slack event means for their own demo.
+or terminal states. `starter/slack/workflows/approval-flow` consumes this
+package and decides what each Slack event means for its own demo
+(`starters/slack-agent` carries its own copy).
