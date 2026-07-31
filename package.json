@@ -4,7 +4,6 @@
   "workspaces": [
     "corbits-tag/packages/*",
     "interchange/packages/*",
-    "starter/slack/bridge",
     "starter/slack/agent",
     "starter/slack/workflows/approval-flow",
     "starter/workflow-approval-flow",
