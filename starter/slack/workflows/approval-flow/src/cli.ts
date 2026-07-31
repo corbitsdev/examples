@@ -1,9 +1,11 @@
-// Slack approval-flow example.
+import { createMemoryState } from "@chat-adapter/state-memory";
+import { mountSlackTag } from "@corbits/tag-slack";
+import { Chat } from "chat";
+import { Hono } from "hono";
 
-import { startSlackBridge } from "@corbits/example-slack-bridge";
-
-import { createApprovalWorkflowAdapter } from "./adapter";
+import { APPROVAL_ACTION_IDS } from "./cards";
 import { resolveConfig, SERVICE_NAME } from "./config";
+import { createApprovalSessions } from "./session";
 
 export type MainOptions = {
   stdout?: (text: string) => void;
@@ -39,29 +41,37 @@ export async function main(
     return 1;
   }
 
-  const adapter = createApprovalWorkflowAdapter({
-    config: resolved.config,
-    stderr,
+  const approvals = createApprovalSessions(resolved.config, stderr);
+  const app = new Hono();
+  const mounted = mountSlackTag(app, {
+    userName: "interchange-workflow",
+    state: createMemoryState(),
+    slack: {
+      botToken: resolved.config.botToken,
+      signingSecret: resolved.config.signingSecret,
+    },
+    subscribeOnMention: false,
+    onTag: (event) => approvals.start(event, chat.thread(event.threadId)),
   });
+  if (!(mounted.bot instanceof Chat)) {
+    throw new Error("mountSlackTag did not return its Chat SDK bot");
+  }
+  const chat = mounted.bot;
+  chat.onAction([...APPROVAL_ACTION_IDS], approvals.decide);
 
   try {
-    await startSlackBridge({
-      serviceName: SERVICE_NAME,
+    Bun.serve({
       port: resolved.config.port,
-      signingSecret: resolved.config.signingSecret,
-      botToken: resolved.config.botToken,
-      appToken: resolved.config.appToken,
-      stdout,
-      stderr,
-      onEvent: adapter.onEvent,
-      onBlockAction: adapter.onBlockAction,
-      onAssistantUserMessage: adapter.onAssistantUserMessage,
+      fetch: app.fetch,
     });
   } catch (error) {
     stderr(`${errorMessage(error)}\n`);
     return 1;
   }
 
+  stdout(
+    `${SERVICE_NAME} listening on http://localhost:${resolved.config.port}${mounted.path}\n`,
+  );
   return await new Promise<never>(() => undefined);
 }
 

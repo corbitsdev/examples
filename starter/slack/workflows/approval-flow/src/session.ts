@@ -6,309 +6,167 @@ import {
   createInvokeStep,
   defineApprovalFlow,
 } from "@corbits/example-workflow-approval-flow";
-import {
-  createSlackThreadSessionStore,
-  postMessage,
-  safePathSegment,
-  slackThreadKey,
-  truncateForSlack,
-  type SlackThreadRef,
-  type Write,
-} from "@corbits/example-slack-bridge";
+import type { TagEvent } from "@corbits/tag-slack";
 import {
   runLocal,
   type WorkflowAuthorizeFn,
   type WorkflowRun,
 } from "@intx/workflow";
+import type { ActionEvent, SentMessage, Thread } from "chat";
 
 import {
-  alreadyRunningBlocks,
-  approvedBlocks,
-  draftReadyBlocks,
-  failedBlocks,
-  notReadyBlocks,
-  publishedBlocks,
-  rejectedBlocks,
-  startedBlocks,
-  terminalStatusBlocks,
-} from "./blocks";
+  APPROVE_ACTION_ID,
+  approvalCard,
+  statusCard,
+} from "./cards";
 import { SERVICE_NAME, type SlackWorkflowConfig } from "./config";
 
 type PendingApproval = {
-  key: string;
-  thread: SlackThreadRef;
   run: WorkflowRun;
-  status: "drafting" | "awaiting-approval" | "resuming" | "finished";
+  thread: Thread;
+  approvalMessage?: SentMessage;
+  decision?: "approved" | "rejected";
 };
 
-export type ApprovalSessions = {
-  start: (input: {
-    teamId: string | undefined;
-    channel: string;
-    threadTs: string;
-    prompt: string;
-  }) => Promise<void>;
-  approve: (key: string, userId: string | undefined) => Promise<void>;
-  reject: (key: string) => Promise<void>;
-};
+const allow: WorkflowAuthorizeFn = async () => ({
+  effect: "allow",
+  matchingGrants: [],
+  resolvedBy: null,
+});
 
-export function createApprovalSessions(opts: {
-  config: SlackWorkflowConfig;
-  stderr: Write;
-}): ApprovalSessions {
-  const { config, stderr } = opts;
-  const pendingByThread = createSlackThreadSessionStore<PendingApproval>(
-    (pending) => pending.status !== "finished",
-  );
-  const pendingByRunId = new Map<string, PendingApproval>();
+export function createApprovalSessions(
+  config: SlackWorkflowConfig,
+  stderr: (text: string) => void,
+) {
+  const active = new Map<string, PendingApproval>();
 
-  async function start(input: {
-    teamId: string | undefined;
-    channel: string;
-    threadTs: string;
-    prompt: string;
-  }): Promise<void> {
-    const thread = {
-      teamId: input.teamId,
-      channel: input.channel,
-      threadTs: input.threadTs,
-    };
-    const key = slackThreadKey(thread);
-    const existing = pendingByThread.getActive(key);
-    if (existing !== undefined) {
-      await postMessage(config.botToken, {
-        channel: input.channel,
-        thread_ts: input.threadTs,
-        text: "An approval workflow is already running here.",
-        blocks: alreadyRunningBlocks(),
-      });
+  async function start(event: TagEvent, thread: Thread): Promise<void> {
+    if (active.has(thread.id)) {
+      await thread.post(
+        statusCard("Workflow already running", "Use the approval card above."),
+      );
       return;
     }
 
-    const outputs = new Map<string, string>();
-    const draftReady = deferred<void>();
-    const authorize = createSlackAuthorize();
-    const invokeStep = createInvokeStep({
-      source: config.source,
-      contextRoot: join(config.contextRoot, safePathSegment(randomUUID())),
-      authorize,
-      log: (line) => stderr(`${SERVICE_NAME}: ${line}\n`),
-      onStepDone: (stepId, output) => {
-        outputs.set(stepId, output);
-        if (stepId === "draft") draftReady.resolve();
-      },
+    let resolveDraft!: (draft: string) => void;
+    const draftReady = new Promise<string>((resolve) => {
+      resolveDraft = resolve;
     });
-
     const run = runLocal(defineApprovalFlow(config.source), {
-      triggerPayload: input.prompt,
-      invokeStep,
-      authorize,
+      triggerPayload: event.text,
+      authorize: allow,
+      invokeStep: createInvokeStep({
+        source: config.source,
+        contextRoot: join(config.contextRoot, randomUUID()),
+        authorize: allow,
+        log: (line) => stderr(`${SERVICE_NAME}: ${line}\n`),
+        onStepDone: (stepId, output) => {
+          if (stepId === "draft") resolveDraft(output);
+        },
+      }),
     });
+    const pending: PendingApproval = { run, thread };
+    active.set(thread.id, pending);
 
-    const pending: PendingApproval = {
-      key,
-      thread,
-      run,
-      status: "drafting",
-    };
-    pendingByThread.set(key, pending);
-    pendingByRunId.set(run.runId, pending);
+    try {
+      await thread.post(
+        statusCard("Workflow started", `Run \`${run.runId}\` is drafting.`),
+      );
+    } catch (error) {
+      active.delete(thread.id);
+      await run.cancel("self", "failed to post workflow start").catch(() => {});
+      throw error;
+    }
 
-    void postDraftWhenReady(pending, draftReady.promise, outputs);
-    void postTerminalResult(pending, outputs);
-
-    await postMessage(config.botToken, {
-      channel: pending.thread.channel,
-      thread_ts: pending.thread.threadTs,
-      text: `Started approval workflow ${run.runId}. Drafting now...`,
-      blocks: startedBlocks(run.runId),
-    });
+    void followRun(pending, draftReady);
   }
 
-  async function approve(
-    runId: string,
-    userId: string | undefined,
-  ): Promise<void> {
-    const pending = pendingByRunId.get(runId);
-    if (pending === undefined || pending.status === "finished") return;
-    if (pending.status !== "awaiting-approval") {
-      await postNotReady(pending);
+  async function decide(event: ActionEvent): Promise<void> {
+    const pending = active.get(event.threadId);
+    if (
+      pending === undefined ||
+      pending.approvalMessage === undefined ||
+      pending.decision !== undefined ||
+      event.value !== pending.run.runId
+    ) {
       return;
     }
 
-    pending.status = "resuming";
+    const approved = event.actionId === APPROVE_ACTION_ID;
+    pending.decision = approved ? "approved" : "rejected";
     try {
-      await pending.run.signal(APPROVAL_SIGNAL, {
-        approvedBy: userId ?? "slack-user",
-        approvedAt: new Date().toISOString(),
-        channel: pending.thread.channel,
-        threadTs: pending.thread.threadTs,
-      });
-    } catch (error) {
-      pending.status = "awaiting-approval";
-      throw error;
-    }
-    await postMessage(config.botToken, {
-      channel: pending.thread.channel,
-      thread_ts: pending.thread.threadTs,
-      text: "Approved. Publishing now...",
-      blocks: approvedBlocks(),
-    });
-  }
-
-  async function reject(runId: string): Promise<void> {
-    const pending = pendingByRunId.get(runId);
-    if (pending === undefined || pending.status === "finished") return;
-    if (pending.status !== "awaiting-approval") {
-      await postNotReady(pending);
-      return;
-    }
-
-    pending.status = "resuming";
-    try {
-      await pending.run.cancel("supervisor-operator", "rejected from Slack");
-    } catch (error) {
-      pending.status = "awaiting-approval";
-      throw error;
-    }
-    await postMessage(config.botToken, {
-      channel: pending.thread.channel,
-      thread_ts: pending.thread.threadTs,
-      text: "Rejected. Workflow cancelled.",
-      blocks: rejectedBlocks(),
-    });
-  }
-
-  async function postDraftWhenReady(
-    pending: PendingApproval,
-    draftReady: Promise<void>,
-    outputs: Map<string, string>,
-  ): Promise<void> {
-    try {
-      await Promise.race([draftReady, pending.run.complete.then(() => undefined)]);
-      if (pending.status !== "drafting") return;
-
-      const draft = outputs.get("draft");
-      if (draft === undefined) return;
-
-      await postMessage(config.botToken, {
-        channel: pending.thread.channel,
-        thread_ts: pending.thread.threadTs,
-        text: truncateForSlack(
-          `Draft ready for approval:\n\n${draft}\n\nApprove or reject in Slack.`,
-        ),
-        blocks: draftReadyBlocks(draft, pending.run.runId),
-      });
-      pending.status = "awaiting-approval";
-    } catch (error) {
-      stderr(`${SERVICE_NAME}: failed to post draft: ${errorMessage(error)}\n`);
-      try {
-        await pending.run.cancel(
-          "slack-bridge",
-          "failed to post approval controls",
-        );
-      } catch (cancelError) {
-        pending.status = "finished";
-        pendingByThread.delete(pending.key);
-        pendingByRunId.delete(pending.run.runId);
-        stderr(
-          `${SERVICE_NAME}: failed to cancel workflow: ${errorMessage(cancelError)}\n`,
-        );
-      }
-    }
-  }
-
-  async function postTerminalResult(
-    pending: PendingApproval,
-    outputs: Map<string, string>,
-  ): Promise<void> {
-    try {
-      const result = await pending.run.complete;
-      pending.status = "finished";
-      pendingByThread.delete(pending.key);
-      pendingByRunId.delete(pending.run.runId);
-
-      if (result.terminalStatus === "completed") {
-        const published = String(
-          result.outputs.publish ?? outputs.get("publish") ?? "",
-        );
-        await postMessage(config.botToken, {
-          channel: pending.thread.channel,
-          thread_ts: pending.thread.threadTs,
-          text: truncateForSlack(`Published:\n\n${published}`),
-          blocks: publishedBlocks(published),
+      if (approved) {
+        await pending.run.signal(APPROVAL_SIGNAL, {
+          approvedBy: event.user.userId,
+          approvedAt: new Date().toISOString(),
+          threadId: event.threadId,
         });
-        return;
+      } else {
+        await pending.run.cancel(
+          "supervisor-operator",
+          "rejected from Slack",
+        );
       }
-
-      await postMessage(config.botToken, {
-        channel: pending.thread.channel,
-        thread_ts: pending.thread.threadTs,
-        text: `Approval workflow ended with status ${result.terminalStatus}.`,
-        blocks: terminalStatusBlocks(result.terminalStatus),
-      });
     } catch (error) {
-      const message = errorMessage(error);
-      stderr(`${SERVICE_NAME}: workflow failed: ${message}\n`);
-      pending.status = "finished";
-      pendingByThread.delete(pending.key);
-      pendingByRunId.delete(pending.run.runId);
-      await postMessage(config.botToken, {
-        channel: pending.thread.channel,
-        thread_ts: pending.thread.threadTs,
-        text: truncateForSlack(`Approval workflow failed: ${message}`),
-        blocks: failedBlocks(message),
-      }).catch(() => undefined);
+      pending.decision = undefined;
+      throw error;
+    }
+
+    const card = approved
+      ? statusCard("Approved", "Publishing now.")
+      : statusCard("Rejected", "Workflow cancelled.");
+    try {
+      await pending.approvalMessage.edit(card);
+    } catch (error) {
+      stderr(
+        `${SERVICE_NAME}: failed to update approval card: ${message(error)}\n`,
+      );
+      await pending.thread.post(card);
     }
   }
 
-  async function postNotReady(pending: PendingApproval): Promise<void> {
-    await postMessage(config.botToken, {
-      channel: pending.thread.channel,
-      thread_ts: pending.thread.threadTs,
-      text: "The workflow is not waiting for approval yet.",
-      blocks: notReadyBlocks(),
-    });
+  async function followRun(
+    pending: PendingApproval,
+    draftReady: Promise<string>,
+  ): Promise<void> {
+    try {
+      const draft = await Promise.race([
+        draftReady,
+        pending.run.complete.then(() => undefined),
+      ]);
+      if (draft !== undefined) {
+        pending.approvalMessage = await pending.thread.post(
+          approvalCard(draft, pending.run.runId),
+        );
+      }
+
+      const result = await pending.run.complete;
+      if (result.terminalStatus === "completed") {
+        await pending.thread.post(
+          statusCard("Published", String(result.outputs.publish ?? "")),
+        );
+      } else if (pending.decision === undefined) {
+        await pending.thread.post(
+          statusCard("Workflow ended", `Status: \`${result.terminalStatus}\``),
+        );
+      }
+    } catch (error) {
+      const detail = message(error);
+      stderr(`${SERVICE_NAME}: workflow failed: ${detail}\n`);
+      await pending.run.cancel("self", detail).catch(() => {});
+      await pending.thread
+        .post(statusCard("Workflow failed", detail))
+        .catch(() => {});
+    } finally {
+      if (active.get(pending.thread.id) === pending) {
+        active.delete(pending.thread.id);
+      }
+    }
   }
 
-  return { start, approve, reject };
+  return { start, decide };
 }
 
-function createSlackAuthorize(): WorkflowAuthorizeFn {
-  return async (resource, action) => ({
-    effect: "allow",
-    matchingGrants: [
-      {
-        id: "slack-operator-grant",
-        resource,
-        action,
-        effect: "allow",
-        origin: "invoker",
-        specificity: 100,
-      },
-    ],
-    resolvedBy: {
-      id: "slack-operator-grant",
-      resource,
-      action,
-      effect: "allow",
-      origin: "invoker",
-      specificity: 100,
-    },
-  });
-}
-
-function deferred<T>(): {
-  promise: Promise<T>;
-  resolve: (value: T | PromiseLike<T>) => void;
-} {
-  let resolve: (value: T | PromiseLike<T>) => void = () => undefined;
-  const promise = new Promise<T>((innerResolve) => {
-    resolve = innerResolve;
-  });
-  return { promise, resolve };
-}
-
-function errorMessage(error: unknown): string {
+function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }

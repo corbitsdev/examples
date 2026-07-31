@@ -48,8 +48,16 @@ cp .env.example .env
 bun run start
 ```
 
-Import its `manifest.slack.json`, enable Socket Mode, and provide
-`SLACK_APP_TOKEN` with the other variables in its `.env.example`.
+Import its `manifest.slack.json`, set both the Events API and Interactivity
+Request URLs to
+`https://<public-host>/api/tag/slack/webhook`, then install the app.
+
+The workflow uses the same HTTP credentials as the agent plus any inference
+provider supported by `starter/workflow-approval-flow`:
+
+- `SLACK_SIGNING_SECRET` and `SLACK_BOT_TOKEN`
+- one of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GOOGLE_API_KEY`
+- optional `PORT`, `PUBLIC_BASE_URL`, `INTX_PROVIDER`, and `INTX_MODEL`
 
 ```text
 Slack message -> draft -> approval buttons -> approve/reject -> final reply
@@ -60,4 +68,4 @@ Slack message -> draft -> approval buttons -> approve/reject -> final reply
 | Path | Purpose |
 | --- | --- |
 | `agent/` | Minimal Interchange agent with HTTP mention and thread follow-up |
-| `workflows/approval-flow/` | Interactive Slack workflow |
+| `workflows/approval-flow/` | Interactive Corbits workflow |

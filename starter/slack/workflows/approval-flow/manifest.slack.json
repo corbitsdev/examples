@@ -13,31 +13,16 @@
     "bot_user": {
       "display_name": "interchange-workflow",
       "always_online": true
-    },
-    "assistant_view": {
-      "assistant_description": "Slack bridge for Interchange approval workflows.",
-      "suggested_prompts": [
-        {
-          "title": "Start approval workflow",
-          "message": "Write a short update and ask for approval"
-        }
-      ]
     }
   },
   "oauth_config": {
     "scopes": {
       "bot": [
         "app_mentions:read",
-        "assistant:write",
-        "channels:history",
         "chat:write",
-        "groups:history",
         "im:history",
-        "im:read",
-        "im:write",
-        "mpim:history",
-        "mpim:read",
-        "mpim:write"
+        "users:read",
+        "users:read.email"
       ]
     }
   },
@@ -45,19 +30,14 @@
     "event_subscriptions": {
       "bot_events": [
         "app_mention",
-        "message.channels",
-        "message.groups",
-        "message.im",
-        "message.mpim",
-        "assistant_thread_started",
-        "assistant_thread_context_changed"
+        "message.im"
       ]
     },
     "interactivity": {
       "is_enabled": true
     },
     "org_deploy_enabled": false,
-    "socket_mode_enabled": true,
+    "socket_mode_enabled": false,
     "is_hosted": false,
     "token_rotation_enabled": false
   }
