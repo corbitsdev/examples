@@ -6,8 +6,7 @@
     "starter/slack/bridge",
     "starter/slack/agent",
     "starter/slack/workflows/approval-flow",
-    "starter/workflow-approval-flow",
-    "starter/workflow-quickstart"
+    "starter/workflow-approval-flow"
   ],
   "catalog": {
     "@types/semver": "^7.7.1",
