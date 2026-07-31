@@ -3,19 +3,23 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
+import { defineAgent, type AuthorizeFn } from "@intx/agent";
+
+import { startSlackBridge, type Write } from "./slack/bridge";
+import {
+  resolveSlackConnection,
+  type SlackConnectionConfig,
+} from "./slack/connection";
+import type {
+  SlackAssistantMessage,
+  SlackEvent,
+  SlashCommand,
+} from "./slack/events";
 import {
   cleanSlackText,
   postMessage,
-  resolveSlackConnection,
-  startSlackBridge,
   truncateForSlack,
-  type SlackConnectionConfig,
-  type SlackEvent,
-  type SlackAssistantMessage,
-  type SlashCommand,
-  type Write,
-} from "@corbits/example-slack-bridge";
-import { defineAgent, type AuthorizeFn } from "@intx/agent";
+} from "./slack/messages";
 
 import { agentContextDir, runAgentTurn } from "./agent";
 import { resolveSource, type Source } from "./source";
