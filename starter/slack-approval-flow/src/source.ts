@@ -87,8 +87,8 @@ function firstEnv(
   names: readonly string[],
 ): string | undefined {
   for (const name of names) {
-    const value = env[name];
-    if (value !== undefined && value !== "") return value;
+    const value = env[name]?.trim();
+    if (value) return value;
   }
   return undefined;
 }
@@ -99,12 +99,13 @@ function buildSource(
   apiKey: string,
 ): Source {
   const spec = PROVIDERS[alias];
-  const model = env.INTX_MODEL ?? env[spec.modelVar] ?? spec.model;
+  const model =
+    env.INTX_MODEL?.trim() || env[spec.modelVar]?.trim() || spec.model;
 
   // A custom OpenAI base URL means a non-OpenAI endpoint that speaks the
   // OpenAI wire format. Surface it as `openai-compatible` (same adapter)
   // so the intent is legible in logs and audits.
-  const customBaseURL = env[spec.baseURLVar];
+  const customBaseURL = env[spec.baseURLVar]?.trim() || undefined;
   const provider =
     alias === "openai" && customBaseURL !== undefined && customBaseURL !== ""
       ? "openai-compatible"
@@ -145,7 +146,7 @@ export function resolveSource(env: NodeJS.ProcessEnv): ResolveResult {
     }
     if (
       requested === "openai-compatible" &&
-      (env.OPENAI_BASE_URL === undefined || env.OPENAI_BASE_URL === "")
+      !env.OPENAI_BASE_URL?.trim()
     ) {
       return {
         error:

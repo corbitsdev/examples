@@ -75,6 +75,13 @@ the run.
 Step context is written under `tmp/slack-approval-flow/`. Delete that directory
 for a fresh start. Type-check with `bun run typecheck`.
 
+## Providers
+
+Set one of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GOOGLE_API_KEY`.
+[`src/source.ts`](./src/source.ts) selects the configured provider and also
+supports `GEMINI_API_KEY` plus OpenAI-compatible endpoints through
+`OPENAI_BASE_URL`. Use `INTX_PROVIDER` and `INTX_MODEL` to select explicitly.
+
 ## Files
 
 | Path | Purpose |
