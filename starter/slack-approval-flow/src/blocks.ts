@@ -4,7 +4,7 @@ import {
   header,
   section,
   type SlackBlock,
-} from "@corbits/example-slack-bridge";
+} from "./slack/blocks";
 
 export const APPROVE_ACTION_ID = "approval.approve";
 export const REJECT_ACTION_ID = "approval.reject";

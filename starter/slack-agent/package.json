@@ -4,19 +4,30 @@
   "license": "MIT",
   "private": true,
   "type": "module",
+  "packageManager": "bun@1.3.14",
+  "workspaces": [
+    "vendor/corbits-tag/packages/*"
+  ],
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
   "scripts": {
     "start": "bun run src/cli.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@chat-adapter/state-memory": "^4.34.0",
+    "@corbits/tag-core": "workspace:*",
     "@corbits/tag-slack": "workspace:*",
-    "@intx/agent": "workspace:*",
-    "@intx/storage-isogit": "workspace:*",
+    "@intx/agent": "0.2.2",
+    "@intx/storage-isogit": "0.2.2",
     "hono": "^4.12.31"
   },
   "devDependencies": {
-    "@types/bun": "1.3.9",
-    "typescript": "5.9.3"
+    "@types/bun": "^1.3.14",
+    "typescript": "^5.9.3"
   }
 }

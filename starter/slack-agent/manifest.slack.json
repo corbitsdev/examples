@@ -24,6 +24,7 @@
   },
   "settings": {
     "event_subscriptions": {
+      "request_url": "https://your-public-tunnel.example/api/tag/slack/webhook",
       "bot_events": [
         "app_mention",
         "message.channels",

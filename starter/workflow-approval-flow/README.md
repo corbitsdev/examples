@@ -21,10 +21,12 @@ resumes only after the local operator approves.
 
 ## Setup
 
-From the repo root:
+This directory is self-contained. Every `@intx/*` package comes from npm
+at `0.2.2`; nothing else in this repository is involved. Copy the
+directory anywhere and it still works.
 
 ```bash
-git submodule update --init interchange
+cd starter/workflow-approval-flow
 bun install
 ```
 
@@ -43,7 +45,6 @@ the `INTX_PROVIDER`, `INTX_MODEL`, and provider-specific env vars.
 Interactive approval:
 
 ```bash
-cd starter/workflow-approval-flow
 bun run start "write a short launch note for the approval workflow demo"
 ```
 
@@ -74,3 +75,12 @@ To start with fresh step context:
 ```bash
 rm -rf tmp/workflow-approval-flow
 ```
+
+Type-check with `bun run typecheck`.
+
+## A note on duplication
+
+`src/source.ts` is deliberately copied between starters rather than
+shared. Each starter is meant to be readable and copyable on its own, so
+a reader never has to chase an import out of the directory they are
+reading.

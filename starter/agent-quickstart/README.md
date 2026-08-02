@@ -1,20 +1,36 @@
 # agent-quickstart
 
 The smallest runnable [`@intx/agent`](https://www.npmjs.com/package/@intx/agent)
-program. Define an inference source, send a prompt, print the reply,
-close. Nothing else.
+program. Describe an agent, stand up the host pieces it needs, send one
+prompt, print the reply, close.
 
 This example answers "what is the minimum amount of code I need to talk
 to an agent?" — read the body of [`src/cli.ts`](./src/cli.ts) and you
-have it. It targets the published `@intx/agent` **0.1.2** API.
+have it. It targets the published `@intx/agent` **0.2.2** API.
+
+This directory is self-contained. Copy it anywhere, run `bun install`,
+and it works — it depends on nothing else in this repository.
 
 ## What it shows
 
-- Building an `InferenceSource` (`id`, `provider`, `baseURL`, `apiKey`,
-  `model`) from `ANTHROPIC_API_KEY`.
-- A single `createAgent({ contextDir, sources, defaultSource, systemPrompt, tools })`
-  call. Passing `contextDir` lets the agent manage an isogit-backed
-  context and audit store inside that directory for you.
+- `defineAgent({ id, systemPrompt, tools, capabilities, inference })` —
+  the portable half of an agent. It carries no credentials and no
+  storage, only the description of what the agent *is*.
+- `createAgent(definition, env)` — the host half. `env` is where the
+  concrete runtime pieces go:
+  - `sources` / `defaultSource` — the `InferenceSource`
+    (`id`, `provider`, `baseURL`, `apiKey`, `model`) built from
+    `ANTHROPIC_API_KEY`, and the id of the one that starts active.
+  - `storage` and `audit` — both satisfied by the single object
+    `createIsogitStore(dir)` returns, which implements `ContextStore`
+    and `AuditStore` over one git repository.
+  - `workdir` — the agent's singleton lock boundary. It **must** be the
+    same directory passed to `createIsogitStore`.
+  - `authorize` — the policy callback tools are checked against. This
+    agent has no tools, so it is never consulted; it denies by default
+    so that adding a tool later fails closed.
+  - `directors` — `createDefaultDirectorRegistry()`, the built-ins-only
+    registry.
 - One round trip through `agent.send(prompt)`, which returns the reply
   text and the full turn that produced it.
 - Tearing the agent down with `agent.close()` so the per-directory lock
@@ -26,8 +42,7 @@ Notably absent: tools, streaming, multi-turn state. `agent.send()` and
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) — the agent packages ship TypeScript source and
-  the `start` script runs `bun run src/cli.ts`.
+- [Bun](https://bun.sh) — the `start` script runs `bun run src/cli.ts`.
 - An `ANTHROPIC_API_KEY`.
 
 ## Running
@@ -52,25 +67,8 @@ Set `ANTHROPIC_MODEL` to use a model other than the default
 (`claude-sonnet-4-6`). Without `ANTHROPIC_API_KEY` the example prints a
 one-line message explaining what to set and exits non-zero.
 
-## A note on the `overrides` block
+Type-check with:
 
-`package.json` carries an `overrides` block pinning every `@intx/*`
-package to `0.1.2`:
-
-```json
-"overrides": {
-  "@intx/inference": "0.1.2",
-  "@intx/types": "0.1.2",
-  "@intx/storage-isogit": "0.1.2",
-  "@intx/mime": "0.1.2",
-  "@intx/log": "0.1.2",
-  "@intx/crypto-node": "0.1.2"
-}
+```bash
+bun run typecheck
 ```
-
-This works around a publishing quirk in the current release: each
-`@intx` package's manifest pins its siblings to `0.0.0`, a version that
-was never published, so a plain `npm install @intx/agent` fails with
-`ETARGET`. Every package *is* published at `0.1.2`, so forcing the whole
-graph to `0.1.2` resolves it. Once the `@intx` packages are republished
-with correct internal version ranges, this block can be removed.
