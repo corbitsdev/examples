@@ -6,7 +6,7 @@
   "type": "module",
   "packageManager": "bun@1.3.14",
   "workspaces": [
-    "vendor/corbits-tag/packages/*"
+    "../slack-agent/vendor/corbits-tag/packages/*"
   ],
   "exports": {
     ".": {
