@@ -1,11 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 
-import {
-  APPROVAL_SIGNAL,
-  createInvokeStep,
-  defineApprovalFlow,
-} from "@corbits/example-workflow-approval-flow";
 import type { TagEvent } from "@corbits/tag-slack";
 import {
   runLocal,
@@ -15,10 +10,11 @@ import {
 import type { ActionEvent, SentMessage, Thread } from "chat";
 
 import {
-  APPROVE_ACTION_ID,
-  approvalCard,
-  statusCard,
-} from "./cards";
+  APPROVAL_SIGNAL,
+  createInvokeStep,
+  defineApprovalFlow,
+} from "./workflow";
+import { APPROVE_ACTION_ID, approvalCard, statusCard } from "./cards";
 import { SERVICE_NAME, type SlackWorkflowConfig } from "./config";
 
 type PendingApproval = {
@@ -102,10 +98,7 @@ export function createApprovalSessions(
           threadId: event.threadId,
         });
       } else {
-        await pending.run.cancel(
-          "supervisor-operator",
-          "rejected from Slack",
-        );
+        await pending.run.cancel("supervisor-operator", "rejected from Slack");
       }
     } catch (error) {
       pending.decision = undefined;

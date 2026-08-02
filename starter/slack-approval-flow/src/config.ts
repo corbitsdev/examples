@@ -1,9 +1,6 @@
 import { join } from "node:path";
 
-import {
-  resolveSource,
-  type Source,
-} from "@corbits/example-workflow-approval-flow";
+import { resolveSource, type Source } from "./source";
 
 export const SERVICE_NAME = "slack-approval-flow";
 

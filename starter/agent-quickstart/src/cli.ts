@@ -1,17 +1,28 @@
 // agent-quickstart: the smallest possible @intx/agent program.
 //
-// Define an inference source, point createAgent at a context directory,
-// send one prompt, print the reply, close. Nothing else.
+// Describe an agent, stand up the host pieces it needs, send one
+// prompt, print the reply, close. Nothing else.
 //
-// This targets the published @intx/agent 0.1.2 API: a single
-// createAgent({ ... }) call. When given a contextDir, the agent
-// materialises an isogit-backed context + audit store inside it, so the
-// only dependency this example declares is @intx/agent itself.
+// This targets the published @intx/agent 0.2.2 API, which splits an
+// agent into two halves:
+//
+//   defineAgent(...)        the portable description — id, system
+//                           prompt, tools, inference preferences
+//   createAgent(def, env)   the host binding — credentials, storage,
+//                           audit sink, authorization, directors
+//
+// Everything under "the host bootstrap" below is that second half.
 
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 
-import { createAgent } from "@intx/agent";
+import {
+  createAgent,
+  createDefaultDirectorRegistry,
+  defineAgent,
+  type AuthorizeFn,
+} from "@intx/agent";
+import { createIsogitStore } from "@intx/storage-isogit";
 
 const EXAMPLE_NAME = "agent-quickstart";
 const DEFAULT_MODEL = "claude-sonnet-4-6";
@@ -27,8 +38,10 @@ export async function main(
   env: NodeJS.ProcessEnv,
   opts: MainOptions = {},
 ): Promise<number> {
-  const stdout = opts.stdout ?? ((text: string) => void process.stdout.write(text));
-  const stderr = opts.stderr ?? ((text: string) => void process.stderr.write(text));
+  const stdout =
+    opts.stdout ?? ((text: string) => void process.stdout.write(text));
+  const stderr =
+    opts.stderr ?? ((text: string) => void process.stderr.write(text));
 
   const prompt = argv.join(" ").trim();
   if (prompt === "") {
@@ -54,16 +67,34 @@ export async function main(
     model,
   };
 
-  const contextDir =
-    opts.contextDir ?? join(process.cwd(), "tmp", EXAMPLE_NAME, "context");
-  mkdirSync(contextDir, { recursive: true });
-
-  const agent = await createAgent({
-    contextDir,
-    sources: [source],
-    defaultSource: source.id,
+  // The definition: portable, credential-free, hashable.
+  const definition = defineAgent({
+    id: EXAMPLE_NAME,
     systemPrompt: "You are a helpful assistant. Keep replies concise.",
     tools: [],
+    capabilities: [],
+    inference: {
+      sources: [{ provider: source.provider, model: source.model }],
+    },
+  });
+
+  // The host bootstrap. One isogit repository backs both the
+  // conversation context and the audit log — createIsogitStore returns
+  // an object implementing ContextStore and AuditStore — and `workdir`
+  // must be that same directory, since it is the agent's lock boundary.
+  const workdir =
+    opts.contextDir ?? join(process.cwd(), "tmp", EXAMPLE_NAME, "context");
+  mkdirSync(workdir, { recursive: true });
+  const storage = await createIsogitStore(workdir);
+
+  const agent = await createAgent(definition, {
+    sources: [source],
+    defaultSource: source.id,
+    storage,
+    workdir,
+    audit: storage,
+    authorize: denyEverything,
+    directors: createDefaultDirectorRegistry(),
   });
 
   try {
@@ -74,6 +105,15 @@ export async function main(
     await agent.close();
   }
 }
+
+// This agent has no tools, so nothing ever consults `authorize`. Denying
+// by default keeps it that way: adding a tool without also deciding a
+// policy fails closed rather than silently granting.
+const denyEverything: AuthorizeFn = async () => ({
+  effect: "deny",
+  matchingGrants: [],
+  resolvedBy: null,
+});
 
 if (import.meta.main) {
   const code = await main(process.argv.slice(2), process.env);

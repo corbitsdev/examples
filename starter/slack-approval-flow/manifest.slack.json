@@ -1,12 +1,12 @@
 {
   "display_information": {
-    "name": "interchange",
-    "description": "Ask an Interchange agent from Slack",
+    "name": "interchange-workflow",
+    "description": "Run Interchange approval workflows from Slack",
     "background_color": "#000000"
   },
   "features": {
     "bot_user": {
-      "display_name": "interchange",
+      "display_name": "interchange-workflow",
       "always_online": true
     }
   },
@@ -14,9 +14,8 @@
     "scopes": {
       "bot": [
         "app_mentions:read",
-        "channels:history",
         "chat:write",
-        "groups:history",
+        "im:history",
         "users:read",
         "users:read.email"
       ]
@@ -24,11 +23,15 @@
   },
   "settings": {
     "event_subscriptions": {
+      "request_url": "https://your-public-tunnel.example/api/tag/slack/webhook",
       "bot_events": [
         "app_mention",
-        "message.channels",
-        "message.groups"
+        "message.im"
       ]
+    },
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "https://your-public-tunnel.example/api/tag/slack/webhook"
     },
     "org_deploy_enabled": false,
     "socket_mode_enabled": false,
