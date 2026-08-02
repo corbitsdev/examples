@@ -1,34 +1,27 @@
-// slack-agent: a Slack bridge that routes events to one example @intx/agent.
-
-import { existsSync } from "node:fs";
 import { join } from "node:path";
 
+import { createMemoryState } from "@chat-adapter/state-memory";
+import {
+  mountSlackTag,
+  type TagEvent,
+  type TagThread,
+} from "@corbits/tag-slack";
 import { defineAgent, type AuthorizeFn } from "@intx/agent";
+import { Hono } from "hono";
 
-import { startSlackBridge, type Write } from "./slack/bridge";
-import {
-  resolveSlackConnection,
-  type SlackConnectionConfig,
-} from "./slack/connection";
-import type {
-  SlackAssistantMessage,
-  SlackEvent,
-  SlashCommand,
-} from "./slack/events";
-import {
-  cleanSlackText,
-  postMessage,
-  truncateForSlack,
-} from "./slack/messages";
-
-import { agentContextDir, runAgentTurn } from "./agent";
+import { runAgentTurn } from "./agent";
 import { resolveSource, type Source } from "./source";
 
 const EXAMPLE_NAME = "slack-agent";
 const DEMO_AGENT_PROMPT =
   "You are interchange, a concise Corbits demo agent replying in Slack. Keep replies useful, direct, and easy to read in a thread.";
 
-export type SlackAgentConfig = SlackConnectionConfig & {
+type Write = (text: string) => void;
+
+export type SlackAgentConfig = {
+  signingSecret: string;
+  botToken: string;
+  port: number;
   source: Source;
   contextRoot: string;
   authorize: AuthorizeFn;
@@ -38,13 +31,6 @@ export type MainOptions = {
   stdout?: Write;
   stderr?: Write;
   contextRoot?: string;
-};
-
-type AgentReplyRequest = {
-  prompt: string;
-  channel: string;
-  threadTs?: string;
-  conversationKey: string;
 };
 
 export async function main(
@@ -66,33 +52,52 @@ export async function main(
     return 1;
   }
 
+  const definition = defineAgent({
+    id: "slack-demo-agent",
+    systemPrompt: DEMO_AGENT_PROMPT,
+    tools: [],
+    capabilities: [],
+    inference: { sources: [config.source] },
+  });
+
+  const answer = async (event: TagEvent, thread: TagThread): Promise<void> => {
+    try {
+      const reply = await runAgentTurn(
+        config,
+        definition,
+        event.text,
+        event.threadId,
+      );
+      await thread.post(reply);
+    } catch (error) {
+      stderr(`${EXAMPLE_NAME}: ${errorMessage(error)}\n`);
+      throw error;
+    }
+  };
+
   try {
-    await startSlackBridge({
-      serviceName: EXAMPLE_NAME,
-      port: config.port,
-      signingSecret: config.signingSecret,
-      botToken: config.botToken,
-      appToken: config.appToken,
-      stdout,
-      stderr,
-      onEvent: (teamId, event) => {
-        const request = requestFromSlackEvent(teamId, event, config);
-        if (request !== undefined) void replyWithAgent(config, request, stderr);
+    const app = new Hono();
+    const { path } = mountSlackTag(app, {
+      userName: "interchange",
+      state: createMemoryState(),
+      slack: {
+        botToken: config.botToken,
+        signingSecret: config.signingSecret,
       },
-      onSlashCommand: (command) => {
-        const request = requestFromSlashCommand(command);
-        if (request !== undefined) void replyWithAgent(config, request, stderr);
-      },
-      onAssistantUserMessage: (message) => {
-        void replyWithAgent(config, requestFromAssistantMessage(message), stderr);
-      },
+      onTag: answer,
+      onThreadMessage: answer,
+      thinkingIndicator: true,
     });
+
+    Bun.serve({ port: config.port, fetch: app.fetch });
+    stdout(
+      `Interchange agent listening on http://localhost:${config.port}${path}\n`,
+    );
+    return 0;
   } catch (error) {
-    stderr(`${error instanceof Error ? error.message : String(error)}\n`);
+    stderr(`${errorMessage(error)}\n`);
     return 1;
   }
-
-  return await new Promise<never>(() => undefined);
 }
 
 function helpText(): string {
@@ -107,137 +112,44 @@ function helpText(): string {
   ].join("\n");
 }
 
-function requestFromSlashCommand(
-  command: SlashCommand,
-): AgentReplyRequest | undefined {
-  const prompt = command.text?.trim() ?? "";
-  const channel = command.channel_id;
-  if (channel === undefined || prompt === "") return undefined;
-
-  return {
-    prompt,
-    channel,
-    conversationKey: [
-      command.team_id,
-      command.channel_id,
-      command.user_id,
-      "slash",
-    ].join("-"),
-  };
-}
-
-function requestFromAssistantMessage(
-  message: SlackAssistantMessage,
-): AgentReplyRequest {
-  return {
-    prompt: message.prompt,
-    channel: message.channel,
-    threadTs: message.threadTs,
-    conversationKey: [
-      message.teamId,
-      message.channel,
-      message.threadTs,
-      message.userId ?? "assistant",
-    ].join("-"),
-  };
-}
-
-function requestFromSlackEvent(
-  teamId: string | undefined,
-  event: SlackEvent,
-  config: SlackAgentConfig,
-): AgentReplyRequest | undefined {
-  const channel = event.channel;
-  const prompt = cleanSlackText(event.text ?? "");
-  if (channel === undefined || prompt === "") return undefined;
-  if (!shouldHandleSlackEvent(teamId, event, config)) return undefined;
-
-  const threadTs = event.thread_ts ?? event.ts;
-  return {
-    prompt,
-    channel,
-    threadTs,
-    conversationKey: [teamId, channel, threadTs ?? event.user ?? "event"].join("-"),
-  };
-}
-
-function shouldHandleSlackEvent(
-  teamId: string | undefined,
-  event: SlackEvent,
-  config: SlackAgentConfig,
-): boolean {
-  if (event.bot_id !== undefined || event.subtype !== undefined) return false;
-  if (event.type === "app_mention") return true;
-  if (event.type !== "message") return false;
-
-  const channel = event.channel ?? "";
-  if (channel.startsWith("D")) return true;
-
-  const threadTs = event.thread_ts;
-  if (threadTs === undefined) return false;
-
-  const conversationKey = [teamId, channel, threadTs].join("-");
-  return existsSync(agentContextDir(config.contextRoot, conversationKey));
-}
-
-async function replyWithAgent(
-  config: SlackAgentConfig,
-  request: AgentReplyRequest,
-  stderr: Write,
-): Promise<void> {
-  try {
-    const agent = defineAgent({
-      id: "slack-demo-agent",
-      systemPrompt: DEMO_AGENT_PROMPT,
-      tools: [],
-      capabilities: [],
-      inference: { sources: [config.source] },
-    });
-    const text = await runAgentTurn(
-      config,
-      agent,
-      request.prompt,
-      request.conversationKey,
-    );
-    await postMessage(config.botToken, {
-      channel: request.channel,
-      thread_ts: request.threadTs,
-      text: truncateForSlack(text),
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    stderr(`${EXAMPLE_NAME}: ${message}\n`);
-    await postMessage(config.botToken, {
-      channel: request.channel,
-      thread_ts: request.threadTs,
-      text: `I hit an error while answering: ${message}`,
-    }).catch(() => undefined);
-  }
-}
-
 function resolveConfig(
   env: NodeJS.ProcessEnv,
   contextRootOverride?: string,
 ):
   | (SlackAgentConfig & { error?: undefined })
   | { error: string } {
-  const slack = resolveSlackConnection(env);
-  if (slack.error !== undefined) return { error: slack.error };
+  const signingSecret = env.SLACK_SIGNING_SECRET?.trim();
+  if (!signingSecret) return { error: "SLACK_SIGNING_SECRET is required.\n" };
+
+  const botToken = env.SLACK_BOT_TOKEN?.trim();
+  if (!botToken) return { error: "SLACK_BOT_TOKEN is required.\n" };
 
   const sourceResult = resolveSource(env);
   if (sourceResult.error !== undefined) return { error: sourceResult.error };
 
+  const portText = env.PORT ?? "3001";
+  const port = Number(portText);
+  if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
+    return { error: `PORT="${portText}" is not a valid port.\n` };
+  }
+
   return {
-    ...slack.config,
+    signingSecret,
+    botToken,
+    port,
     source: sourceResult.source,
-    authorize: denyAgentTools,
     contextRoot:
       contextRootOverride ?? join(process.cwd(), "tmp", EXAMPLE_NAME, "context"),
+    authorize: denyAgentTools,
   };
 }
 
 async function denyAgentTools(): ReturnType<AuthorizeFn> {
   return { effect: "deny", matchingGrants: [], resolvedBy: null };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 if (import.meta.main) {

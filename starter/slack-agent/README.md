@@ -1,81 +1,75 @@
-# slack-agent
+# Slack agent
 
-Run an Interchange agent from Slack. App mentions, DMs, Slack Assistant
-threads, follow-up replies in a thread the agent already knows, and a
-`/demo-agent` slash command all route to one agent, and the reply is
-posted back into the same thread.
+Run an Interchange agent behind Corbits Tag's Slack HTTP ingress. App
+mentions start a conversation, and replies in the same Slack thread continue
+it without another mention.
 
-This directory is self-contained. Every dependency comes from npm —
-`@intx/*` at `0.2.2` — and nothing here imports from anywhere else in
-this repository. Copy the directory anywhere, `bun install`, and it
-runs.
-
-## What's here
-
-| Path | Purpose |
-| --- | --- |
-| `src/cli.ts` | Entry point: config, event → prompt mapping, posting replies |
-| `src/agent.ts` | One agent per Slack thread, backed by an isogit context store |
-| `src/source.ts` | Provider resolution from the environment |
-| `src/slack/` | The Slack transport: connection config, Bolt wiring, event parsing, message helpers |
-
-`src/slack/` is Slack plumbing and `src/cli.ts` + `src/agent.ts` are the
-agent behavior. That separation is a reading aid within this starter,
-not a package boundary — see the note on duplication at the bottom.
+This directory is self-contained. Interchange comes from npm, while the
+unpublished Corbits Tag packages are pinned in
+`vendor/corbits-tag` as a git submodule.
 
 ## Setup
 
+From the repository root, initialize the starter's vendored dependency:
+
+```bash
+git submodule update --init --recursive starter/slack-agent/vendor/corbits-tag
+```
+
+Then install the starter and create its local environment file:
+
 ```bash
 cd starter/slack-agent
-bun install
+bun install --frozen-lockfile
 cp .env.example .env
 ```
 
-Fill in:
+Replace `https://your-public-tunnel.example` in
+[`manifest.slack.json`](./manifest.slack.json) with the public HTTPS URL that
+forwards to this starter, then import the manifest into a dedicated Slack app.
+Its Events API Request URL must end with:
 
-```bash
-SLACK_SIGNING_SECRET=...
-SLACK_APP_TOKEN=xapp-...
-SLACK_BOT_TOKEN=xoxb-...
-ANTHROPIC_API_KEY=...
+```text
+/api/tag/slack/webhook
 ```
 
-Import [`manifest.slack.json`](./manifest.slack.json) in Slack, enable
-Socket Mode, install (or reinstall) the app, then:
+Install the app, then fill `.env` with its signing secret and bot token plus one
+model-provider API key. Start the server and verify the Events API Request URL
+in Slack:
 
 ```bash
 bun run start
 ```
 
-Socket Mode needs no public tunnel. Without it, point Slack Event
-Subscriptions, Slash Commands, and Interactivity at
-`https://your-public-tunnel.example/slack/events` and leave
-`SLACK_APP_TOKEN` unset.
+Invite `@interchange` to a channel, then mention it. Each Slack thread gets its
+own durable Interchange context under `tmp/slack-agent/context/`. Reinstall the
+Slack app whenever its OAuth scopes change.
 
-## Using it
-
-```text
-@interchange explain what this channel is about
-DM interchange: write a short standup update
-Open the Slack Assistant pane and ask interchange a question
-/demo-agent summarize this channel
-```
-
-Each Slack thread gets its own agent context under
-`tmp/slack-agent/context/`; delete that directory for a fresh start.
+Corbits Tag keeps thread subscriptions and event deduplication in process-local
+memory in this starter. Replace `createMemoryState()` in `src/cli.ts` with a
+durable Chat SDK state adapter before running multiple instances.
 
 ## Providers
 
-Use whichever provider key you have: `ANTHROPIC_API_KEY`,
-`OPENAI_API_KEY`, or `GOOGLE_API_KEY`. Set `INTX_PROVIDER` and
-`INTX_MODEL` to force a provider or model. See
+Set one of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GOOGLE_API_KEY`. Use
+`INTX_PROVIDER` and `INTX_MODEL` to force a provider or model. See
 [`src/source.ts`](./src/source.ts).
 
-Type-check with `bun run typecheck`.
+## Dependency layout
 
-## A note on duplication
+`@corbits/tag-slack` declares its internal `@corbits/tag-core` dependency with
+Bun's `workspace:*` protocol. This starter is therefore a small workspace whose
+only members are the packages inside its vendored Tag submodule. The repository
+root remains free of package-manager workspace machinery.
 
-`src/slack/` and `src/source.ts` are duplicated with the other starters
-rather than shared. That is on purpose: a starter is only useful if you
-can copy the one directory you are reading and have working code. Do not
-factor these back into a common package.
+To update Corbits Tag, check out the reviewed commit inside
+`vendor/corbits-tag`, stage the gitlink, regenerate `bun.lock`, and rerun the
+validation commands below.
+
+## Validation
+
+```bash
+bun install --frozen-lockfile
+bun run typecheck
+bun build src/cli.ts --target=bun --outdir /tmp/corbits-slack-agent-build
+```
