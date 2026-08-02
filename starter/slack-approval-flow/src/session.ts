@@ -2,16 +2,12 @@ import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 
 import type { TagEvent } from "@corbits/tag-slack";
-import {
-  runLocal,
-  type WorkflowAuthorizeFn,
-  type WorkflowRun,
-} from "@intx/workflow";
+import { runLocal, type WorkflowRun } from "@intx/workflow";
 import type { ActionEvent, SentMessage, Thread } from "chat";
 
 import {
   APPROVAL_SIGNAL,
-  createInvokeStep,
+  createAgentStepInvoker,
   defineApprovalFlow,
 } from "./workflow";
 import { APPROVE_ACTION_ID, approvalCard, statusCard } from "./cards";
@@ -23,12 +19,6 @@ type PendingApproval = {
   approvalMessage?: SentMessage;
   decision?: "approved" | "rejected";
 };
-
-const allow: WorkflowAuthorizeFn = async () => ({
-  effect: "allow",
-  matchingGrants: [],
-  resolvedBy: null,
-});
 
 export function createApprovalSessions(
   config: SlackWorkflowConfig,
@@ -44,22 +34,19 @@ export function createApprovalSessions(
       return;
     }
 
-    let resolveDraft!: (draft: string) => void;
-    const draftReady = new Promise<string>((resolve) => {
-      resolveDraft = resolve;
+    const draftReady = Promise.withResolvers<string>();
+    const invokeStep = createAgentStepInvoker({
+      source: config.source,
+      contextRoot: join(config.contextRoot, randomUUID()),
+      log: (line) => stderr(`${SERVICE_NAME}: ${line}\n`),
+      onStepDone: (stepId, output) => {
+        if (stepId === "draft") draftReady.resolve(output);
+      },
     });
+
     const run = runLocal(defineApprovalFlow(config.source), {
       triggerPayload: event.text,
-      authorize: allow,
-      invokeStep: createInvokeStep({
-        source: config.source,
-        contextRoot: join(config.contextRoot, randomUUID()),
-        authorize: allow,
-        log: (line) => stderr(`${SERVICE_NAME}: ${line}\n`),
-        onStepDone: (stepId, output) => {
-          if (stepId === "draft") resolveDraft(output);
-        },
-      }),
+      invokeStep,
     });
     const pending: PendingApproval = { run, thread };
     active.set(thread.id, pending);
@@ -74,7 +61,7 @@ export function createApprovalSessions(
       throw error;
     }
 
-    void followRun(pending, draftReady);
+    void followRun(pending, draftReady.promise);
   }
 
   async function decide(event: ActionEvent): Promise<void> {

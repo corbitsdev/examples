@@ -21,7 +21,6 @@ import {
   defineWorkflow,
   step,
   type StepInvoker,
-  type WorkflowAuthorizeFn,
   type WorkflowDefinition,
 } from "@intx/workflow";
 
@@ -74,28 +73,18 @@ export function defineApprovalFlow(source: Source): WorkflowDefinition {
   });
 }
 
-export function createInvokeStep(opts: {
+// runLocal's built-in invoker is only a stub. This adapter runs each workflow
+// step with a real Interchange agent and returns its reply to the workflow.
+export function createAgentStepInvoker(opts: {
   source: Source;
   contextRoot: string;
-  authorize: WorkflowAuthorizeFn;
   log?: (line: string) => void;
   onStepDone?: (stepId: string, output: string) => void;
 }): StepInvoker {
-  const { source, contextRoot, authorize, log, onStepDone } = opts;
+  const { source, contextRoot, log, onStepDone } = opts;
 
   return async ({ agent, input, authzContext }) => {
     const stepId = authzContext.stepId ?? agent.id;
-    const decision = await authorize(`workflow-step:${stepId}`, "invoke", {
-      ...authzContext,
-      stepId,
-    });
-    log?.(`policy result: ${decision.effect ?? "null"} for ${stepId}`);
-    if (decision.effect !== "allow") {
-      throw new Error(
-        `authorization blocked workflow-step:${stepId} invoke with effect ${decision.effect ?? "null"}`,
-      );
-    }
-
     log?.(`step ${stepId}: ${agent.id} running`);
 
     const workdir = join(contextRoot, stepId);
