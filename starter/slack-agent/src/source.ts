@@ -73,7 +73,7 @@ export function resolveSource(env: NodeJS.ProcessEnv): ResolveResult {
     }
     if (
       requested === "openai-compatible" &&
-      (env.OPENAI_BASE_URL === undefined || env.OPENAI_BASE_URL === "")
+      !env.OPENAI_BASE_URL?.trim()
     ) {
       return {
         error: 'INTX_PROVIDER="openai-compatible" requires OPENAI_BASE_URL.\n',
@@ -99,8 +99,9 @@ function buildSource(
   apiKey: string,
 ): Source {
   const spec = PROVIDERS[alias];
-  const model = env.INTX_MODEL ?? env[spec.modelVar] ?? spec.model;
-  const customBaseURL = env[spec.baseURLVar];
+  const model =
+    env.INTX_MODEL?.trim() || env[spec.modelVar]?.trim() || spec.model;
+  const customBaseURL = env[spec.baseURLVar]?.trim() || undefined;
   const provider =
     alias === "openai" && customBaseURL !== undefined && customBaseURL !== ""
       ? "openai-compatible"
@@ -119,8 +120,8 @@ function firstEnv(
   names: readonly string[],
 ): string | undefined {
   for (const name of names) {
-    const value = env[name];
-    if (value !== undefined && value !== "") return value;
+    const value = env[name]?.trim();
+    if (value) return value;
   }
   return undefined;
 }
