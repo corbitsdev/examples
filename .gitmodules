@@ -1,6 +1,3 @@
 [submodule "corbits-tag"]
 	path = starter/slack-agent/vendor/corbits-tag
 	url = https://github.com/corbitsdev/corbits-tag.git
-[submodule "corbits-tag-slack-post-to-x"]
-	path = starter/slack-post-to-x/vendor/corbits-tag
-	url = https://github.com/corbitsdev/corbits-tag.git

@@ -13,10 +13,10 @@ labels this as a local character count because X applies its own final weighted
 validation. The publish action receives the validation action's workflow output,
 not text from Slack.
 
-This directory is self-contained. It uses npm `@intx/*` packages at `0.2.2`
-and vendors the unpublished Corbits Tag repository as a starter-local Git
-submodule and Bun workspace. It does not import another example or depend on
-repository-root workspace machinery.
+This starter builds on the Corbits Tag dependency introduced by the Slack agent
+starter. It uses npm `@intx/*` packages at `0.2.2` and consumes the shared,
+pinned Corbits Tag checkout at `../slack-agent/vendor/corbits-tag` as a Bun
+workspace. The stacked change does not register or clone a second submodule.
 
 ## Setup
 
@@ -29,10 +29,11 @@ repository-root workspace machinery.
    cp .env.example .env
    ```
 
-   For an existing clone, initialize this starter's submodule first:
+   For an existing clone, initialize the shared Corbits Tag submodule from the
+   repository root:
 
    ```bash
-   git submodule update --init --recursive starter/slack-post-to-x/vendor/corbits-tag
+   git submodule update --init --recursive starter/slack-agent/vendor/corbits-tag
    ```
 
 2. Replace both `https://your-public-tunnel.example` values in
