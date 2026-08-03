@@ -18,11 +18,11 @@
         "typescript": "^5.9.3",
       },
     },
-    "vendor/corbits-tag/packages/tag-core": {
+    "../slack-agent/vendor/corbits-tag/packages/tag-core": {
       "name": "@corbits/tag-core",
       "version": "0.1.0",
     },
-    "vendor/corbits-tag/packages/tag-interchange": {
+    "../slack-agent/vendor/corbits-tag/packages/tag-interchange": {
       "name": "@corbits/tag-interchange",
       "version": "0.1.0",
       "dependencies": {
@@ -30,7 +30,7 @@
         "drizzle-orm": "0.45.2",
       },
     },
-    "vendor/corbits-tag/packages/tag-slack": {
+    "../slack-agent/vendor/corbits-tag/packages/tag-slack": {
       "name": "@corbits/tag-slack",
       "version": "0.1.0",
       "dependencies": {
@@ -52,11 +52,11 @@
 
     "@chat-adapter/state-memory": ["@chat-adapter/state-memory@4.36.0", "", { "dependencies": { "chat": "4.36.0" } }, "sha512-zutvNwKopdg05dcLSdy8KuDZhJt40nwlAMXKqCyMt2GzM2FOqCJnFOixA8SNN8WMKZgYefeAnFovzVxySHYqUw=="],
 
-    "@corbits/tag-core": ["@corbits/tag-core@workspace:vendor/corbits-tag/packages/tag-core"],
+    "@corbits/tag-core": ["@corbits/tag-core@workspace:../slack-agent/vendor/corbits-tag/packages/tag-core"],
 
-    "@corbits/tag-interchange": ["@corbits/tag-interchange@workspace:vendor/corbits-tag/packages/tag-interchange"],
+    "@corbits/tag-interchange": ["@corbits/tag-interchange@workspace:../slack-agent/vendor/corbits-tag/packages/tag-interchange"],
 
-    "@corbits/tag-slack": ["@corbits/tag-slack@workspace:vendor/corbits-tag/packages/tag-slack"],
+    "@corbits/tag-slack": ["@corbits/tag-slack@workspace:../slack-agent/vendor/corbits-tag/packages/tag-slack"],
 
     "@intx/agent": ["@intx/agent@0.2.2", "", { "dependencies": { "@intx/inference": "0.2.2", "@intx/log": "0.2.2", "@intx/mime": "0.2.2", "@intx/types": "0.2.2", "arktype": "^2.1.29" } }, "sha512-tlsFL0bjYQ7MimcgUIfx7WJgXpNX5YA2v0EVOsZaNXPubjx+ifnh/Ewlol5gf0pADvLG7yiXryuJ7DTUFg/bTw=="],
 
