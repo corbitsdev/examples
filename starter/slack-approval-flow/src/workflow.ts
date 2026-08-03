@@ -73,8 +73,6 @@ export function defineApprovalFlow(source: Source): WorkflowDefinition {
   });
 }
 
-// runLocal's built-in invoker is only a stub. This adapter runs each workflow
-// step with a real Interchange agent and returns its reply to the workflow.
 export function createAgentStepInvoker(opts: {
   source: Source;
   contextRoot: string;
