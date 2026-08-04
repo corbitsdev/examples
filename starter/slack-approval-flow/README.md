@@ -1,87 +1,94 @@
 # slack-approval-flow
 
-A human-in-the-loop approval workflow driven from Slack:
+A human-in-the-loop Interchange workflow driven from Slack through Corbits Tag:
 
 ```text
-Slack message -> draft -> approval buttons -> approve/reject -> final reply
+Slack mention or DM -> draft -> approval card -> approve/reject -> final reply
 ```
 
-An app mention, DM, or Slack Assistant message starts a run. The draft is
-posted back into the thread with Block Kit Approve / Reject buttons.
-Approve delivers `run.signal("approve", payload)` and the publish step
-executes; Reject calls `run.cancel(...)`. The published result — or the
-terminal status if the run ended some other way — lands in the same
-thread.
+`mountSlackTag` owns Slack signature verification, HTTP webhook routing, and
+event normalization. This starter owns the workflow policy and session state:
+it posts Chat SDK cards, handles `Button` actions with `onAction`, signals an
+approval with `run.signal("approve", payload)`, and cancels a rejection with a
+supported Interchange cancellation actor.
 
-This directory is self-contained. Every dependency comes from npm —
-`@intx/*` at `0.2.2` — and nothing here imports from anywhere else in
-this repository. Copy the directory anywhere, `bun install`, and it
-runs.
-
-## What's here
-
-| Path | Purpose |
-| --- | --- |
-| `src/cli.ts` | Entry point |
-| `src/config.ts` | Slack + provider configuration from the environment |
-| `src/adapter.ts` | Routes Slack events and button clicks into the session store |
-| `src/session.ts` | The approval lifecycle: one run per Slack thread |
-| `src/blocks.ts` | The approval UI — Block Kit payloads for each state |
-| `src/workflow.ts` | The workflow itself: `draft -> awaitSignal("approve") -> publish` |
-| `src/source.ts` | Provider resolution from the environment |
-| `src/slack/` | The Slack transport: connection config, Bolt wiring, event parsing, message helpers, thread session store, generic workflow adapter |
+This starter builds on the Corbits Tag dependency introduced by the Slack agent
+starter. It uses npm `@intx/*` packages at `0.2.2` and consumes the shared,
+pinned Corbits Tag checkout at `../slack-agent/vendor/corbits-tag` as a Bun
+workspace. The stacked change does not register or clone a second submodule.
 
 ## Setup
 
-```bash
-cd starter/slack-approval-flow
-bun install
-cp .env.example .env
-```
+1. Clone the repository with its submodules and install this starter:
 
-Fill in:
+   ```bash
+   git clone --recurse-submodules https://github.com/corbitsdev/examples.git
+   cd examples/starter/slack-approval-flow
+   bun install
+   cp .env.example .env
+   ```
 
-```bash
-SLACK_SIGNING_SECRET=...
-SLACK_APP_TOKEN=xapp-...
-SLACK_BOT_TOKEN=xoxb-...
-ANTHROPIC_API_KEY=...
-```
+   If the repository is already cloned, initialize the shared Corbits Tag
+   submodule from the repository root:
 
-Import [`manifest.slack.json`](./manifest.slack.json) in Slack, enable
-Socket Mode, install (or reinstall) the app, then:
+   ```bash
+   git submodule update --init --recursive starter/slack-agent/vendor/corbits-tag
+   ```
 
-```bash
-bun run start
-```
+2. Expose port `3001` through an HTTPS tunnel. Replace both
+   `https://your-public-tunnel.example` placeholders in
+   [`manifest.slack.json`](./manifest.slack.json) with the tunnel's HTTPS URL.
+   Both request URLs must end in `/api/tag/slack/webhook`.
 
-Socket Mode needs no public tunnel. Without it, point Slack Event
-Subscriptions, Slash Commands, and Interactivity at
-`https://your-public-tunnel.example/slack/events` and leave
-`SLACK_APP_TOKEN` unset.
+3. Create a Slack app from the edited manifest and install it in the workspace.
 
-## Using it
+4. Populate `.env` with `SLACK_SIGNING_SECRET`, `SLACK_BOT_TOKEN`, and one
+   provider key: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GOOGLE_API_KEY`.
+
+5. Start the HTTP server:
+
+   ```bash
+   bun run start
+   ```
+
+6. In Slack's app settings, verify that both Event Subscriptions and
+   Interactivity accept the same HTTPS webhook URL.
+
+The server listens on:
 
 ```text
-@interchange-workflow write a short launch note for the approval workflow demo
-Open the Slack Assistant pane and ask interchange-workflow for an approval draft
+POST /api/tag/slack/webhook
 ```
 
-Step context is written under `tmp/slack-approval-flow/`; delete that
-directory for a fresh start.
+## Use it
+
+Mention the bot in a channel or send it a DM:
+
+```text
+@corbits-workflow write a short launch note for the approval workflow demo
+```
+
+The bot posts the draft with Approve and Reject buttons. Approval resumes the
+workflow and publishes the result in the same Slack thread; rejection cancels
+the run.
+
+Step context is written under `tmp/slack-approval-flow/`. Delete that directory
+for a fresh start. Type-check with `bun run typecheck`.
 
 ## Providers
 
-Use whichever provider key you have: `ANTHROPIC_API_KEY`,
-`OPENAI_API_KEY`, or `GOOGLE_API_KEY`. Set `INTX_PROVIDER` and
-`INTX_MODEL` to force a provider or model. See
-[`src/source.ts`](./src/source.ts).
+Set one of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `GOOGLE_API_KEY`.
+[`src/source.ts`](./src/source.ts) selects the configured provider and also
+supports `GEMINI_API_KEY` plus OpenAI-compatible endpoints through
+`OPENAI_BASE_URL`. Use `INTX_PROVIDER` and `INTX_MODEL` to select explicitly.
 
-Type-check with `bun run typecheck`.
+## Files
 
-## A note on duplication
-
-`src/slack/`, `src/workflow.ts` and `src/source.ts` are duplicated with
-the other starters rather than shared. That is on purpose: a starter is
-only useful if you can copy the one directory you are reading and have
-working code. Do not factor these back into a common package.
+| Path | Purpose |
+| --- | --- |
+| `src/cli.ts` | HTTP server, Corbits Tag mount, and Chat SDK action registration |
+| `src/session.ts` | Consumer-owned approval lifecycle and run state |
+| `src/cards.ts` | Chat SDK cards and buttons |
+| `src/workflow.ts` | `draft -> awaitSignal("approve") -> publish` workflow |
+| `src/source.ts` | Provider selection from environment variables |
+| `../slack-agent/vendor/corbits-tag` | Shared pinned Corbits Tag workspace introduced by the base change |

@@ -21,7 +21,6 @@ import {
   defineWorkflow,
   step,
   type StepInvoker,
-  type WorkflowAuthorizeFn,
   type WorkflowDefinition,
 } from "@intx/workflow";
 
@@ -74,28 +73,16 @@ export function defineApprovalFlow(source: Source): WorkflowDefinition {
   });
 }
 
-export function createInvokeStep(opts: {
+export function createAgentStepInvoker(opts: {
   source: Source;
   contextRoot: string;
-  authorize: WorkflowAuthorizeFn;
   log?: (line: string) => void;
   onStepDone?: (stepId: string, output: string) => void;
 }): StepInvoker {
-  const { source, contextRoot, authorize, log, onStepDone } = opts;
+  const { source, contextRoot, log, onStepDone } = opts;
 
-  return async ({ agent, input, authzContext }) => {
+  return async ({ agent, input, authzContext, signal }) => {
     const stepId = authzContext.stepId ?? agent.id;
-    const decision = await authorize(`workflow-step:${stepId}`, "invoke", {
-      ...authzContext,
-      stepId,
-    });
-    log?.(`policy result: ${decision.effect ?? "null"} for ${stepId}`);
-    if (decision.effect !== "allow") {
-      throw new Error(
-        `authorization blocked workflow-step:${stepId} invoke with effect ${decision.effect ?? "null"}`,
-      );
-    }
-
     log?.(`step ${stepId}: ${agent.id} running`);
 
     const workdir = join(contextRoot, stepId);
@@ -116,7 +103,7 @@ export function createInvokeStep(opts: {
 
     try {
       const prompt = typeof input === "string" ? input : JSON.stringify(input);
-      const { reply } = await runtimeAgent.send(prompt);
+      const { reply } = await runtimeAgent.send(prompt, { signal });
       log?.(`step ${stepId}: done (${String(reply.length)} chars)`);
       onStepDone?.(stepId, reply);
       return { output: reply };
