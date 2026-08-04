@@ -1,12 +1,12 @@
 {
   "display_information": {
-    "name": "interchange-social",
-    "description": "Draft and approve X posts from Slack",
+    "name": "corbits-social",
+    "description": "Draft and approve X posts with Corbits",
     "background_color": "#000000"
   },
   "features": {
     "bot_user": {
-      "display_name": "interchange-social",
+      "display_name": "corbits-social",
       "always_online": true
     }
   },
