@@ -29,13 +29,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-export async function searchWeb(
+async function searchWeb(
   query: string,
   config: WebResearchConfig,
-  signal: AbortSignal = new AbortController().signal,
+  signal: AbortSignal,
 ): Promise<WebSnippet[]> {
-  const fetchImpl = config.fetchImpl ?? fetch;
-  const response = await fetchImpl(EXA_SEARCH_URL, {
+  const response = await fetch(EXA_SEARCH_URL, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -80,10 +79,10 @@ export async function searchWeb(
     }));
 }
 
-export async function fetchPage(
+async function fetchPage(
   url: string,
   config: WebResearchConfig,
-  signal: AbortSignal = new AbortController().signal,
+  signal: AbortSignal,
 ): Promise<WebSnippet> {
   if (
     config.firecrawlApiKey === undefined ||
@@ -98,8 +97,7 @@ export async function fetchPage(
     throw new Error("fetch_page requires an http or https URL");
   }
 
-  const fetchImpl = config.fetchImpl ?? fetch;
-  const response = await fetchImpl(FIRECRAWL_SCRAPE_URL, {
+  const response = await fetch(FIRECRAWL_SCRAPE_URL, {
     method: "POST",
     headers: {
       "content-type": "application/json",

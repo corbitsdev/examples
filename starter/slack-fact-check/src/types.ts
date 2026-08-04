@@ -35,13 +35,7 @@ export type FactCheckReport = {
   claims: FactCheckClaim[];
 };
 
-export type FetchImpl = (
-  input: string | URL | Request,
-  init?: RequestInit,
-) => Promise<Response>;
-
 export type WebResearchConfig = {
   exaApiKey: string;
   firecrawlApiKey?: string;
-  fetchImpl?: FetchImpl;
 };
