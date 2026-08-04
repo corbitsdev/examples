@@ -1,3 +1,13 @@
+// Provider resolution keeps the workflow independent from any inference vendor.
+//
+// Set INTX_PROVIDER to select Anthropic, OpenAI, an OpenAI-compatible endpoint,
+// or Google explicitly. Otherwise the first configured API key wins in this
+// order: Anthropic, OpenAI, then Google.
+//
+// INTX_MODEL overrides the selected provider's model. Each provider also
+// accepts its own *_MODEL and *_BASE_URL variables. OPENAI_BASE_URL selects the
+// OpenAI-compatible adapter for gateways and local inference servers.
+
 export type Source = {
   id: string;
   provider: string;
@@ -10,15 +20,20 @@ export type ResolveResult =
   | { source: Source; error?: undefined }
   | { source?: undefined; error: string };
 
-type Provider = {
+type ProviderSpec = {
+  /** Canonical provider id passed to Interchange. */
   provider: string;
+  /** API-key variables, checked in order. */
   keyNames: readonly string[];
+  /** Endpoint override variable and hosted default. */
   baseURLName: string;
   baseURL: string;
+  /** Model override variable and default. */
   modelName: string;
   model: string;
 };
 
+// OpenAI-compatible is derived from OpenAI when OPENAI_BASE_URL is set.
 const providers = {
   anthropic: {
     provider: "anthropic",
@@ -44,7 +59,7 @@ const providers = {
     modelName: "GOOGLE_MODEL",
     model: "gemini-2.0-flash",
   },
-} as const satisfies Record<string, Provider>;
+} as const satisfies Record<string, ProviderSpec>;
 
 export function resolveSource(env: NodeJS.ProcessEnv): ResolveResult {
   const requested = env.INTX_PROVIDER?.trim().toLowerCase();

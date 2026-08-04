@@ -53,9 +53,6 @@ export function createXCommunityClient(
   credentials: XCredentials,
   fetchImpl: typeof fetch = fetch,
 ): XCommunityClient {
-  // The two analyst agents run in parallel, so they share this account lookup.
-  const users = new Map<string, Promise<XUser>>();
-
   async function request<T>(url: URL, signal?: AbortSignal): Promise<T> {
     const response = await fetchImpl(url, {
       headers: { Authorization: buildOAuthHeader(url, credentials) },
@@ -71,30 +68,20 @@ export function createXCommunityClient(
   }
 
   async function getUser(username: string, signal?: AbortSignal) {
-    const key = username.toLowerCase();
-    const cached = users.get(key);
-    if (cached) return cached;
-
     const url = new URL(
       `/2/users/by/username/${encodeURIComponent(username)}`,
       API_ORIGIN,
     );
     url.searchParams.set("user.fields", "id,name,username,public_metrics");
-    const pending = request<{ data: XAPIUser }>(url, signal)
-      .then(({ data }) => toUser(data))
-      .catch((error) => {
-        users.delete(key);
-        throw error;
-      });
-    users.set(key, pending);
-    return pending;
+    const { data } = await request<{ data?: XAPIUser }>(url, signal);
+    if (!data) throw new Error(`X account @${username} not found`);
+    return toUser(data);
   }
 
   async function getPostPages(
     kind: "mentions" | "posts",
     userId: string,
-    start: Date,
-    end: Date,
+    period: PulseTarget["currentPeriod"],
     signal?: AbortSignal,
   ) {
     const endpoint = kind === "mentions" ? "mentions" : "tweets";
@@ -104,8 +91,8 @@ export function createXCommunityClient(
 
     for (let pageNumber = 0; pageNumber < MAX_PAGES; pageNumber += 1) {
       const url = new URL(`/2/users/${userId}/${endpoint}`, API_ORIGIN);
-      url.searchParams.set("start_time", start.toISOString());
-      url.searchParams.set("end_time", end.toISOString());
+      url.searchParams.set("start_time", new Date(period.start).toISOString());
+      url.searchParams.set("end_time", new Date(period.end).toISOString());
       url.searchParams.set("max_results", "100");
       url.searchParams.set("tweet.fields", "author_id,created_at,public_metrics");
       url.searchParams.set("expansions", "author_id");
@@ -132,27 +119,19 @@ export function createXCommunityClient(
     signal?: AbortSignal,
   ): Promise<XWeeklyCollection> {
     const account = await getUser(target.username, signal);
-    const currentStart = new Date(target.currentPeriod.start);
-
-    // One 14-day request covers both adjacent weeks and avoids duplicate calls.
-    const result = await getPostPages(
-      kind,
-      account.id,
-      new Date(target.previousPeriod.start),
-      new Date(target.currentPeriod.end),
-      signal,
-    );
+    // Give each week its own page budget so a busy current week cannot erase
+    // the previous period from the comparison.
+    const [current, previous] = await Promise.all([
+      getPostPages(kind, account.id, target.currentPeriod, signal),
+      getPostPages(kind, account.id, target.previousPeriod, signal),
+    ]);
     return {
       ...target,
       username: account.username,
       account,
-      current: result.posts.filter(
-        (post) => Date.parse(post.createdAt) >= currentStart.getTime(),
-      ),
-      previous: result.posts.filter(
-        (post) => Date.parse(post.createdAt) < currentStart.getTime(),
-      ),
-      truncated: result.truncated,
+      current: current.posts,
+      previous: previous.posts,
+      truncated: current.truncated || previous.truncated,
     };
   }
 

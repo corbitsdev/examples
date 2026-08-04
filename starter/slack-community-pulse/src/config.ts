@@ -52,7 +52,7 @@ export function resolveConfig(
     return { error: `${missing.join(", ")} must be set for read-only X access.\n` };
   }
 
-  const source = resolveSource(providerEnv(env));
+  const source = resolveSource(env);
   if (source.error !== undefined) return { error: source.error };
 
   const defaultHandle = env.X_COMMUNITY_HANDLE?.trim().replace(/^@/u, "");
@@ -67,26 +67,14 @@ export function resolveConfig(
       botToken,
       source: source.source,
       xClient: createXCommunityClient({
-        apiKey: env.X_API_KEY!,
-        apiSecret: env.X_API_SECRET!,
-        accessToken: env.X_ACCESS_TOKEN!,
-        accessTokenSecret: env.X_ACCESS_TOKEN_SECRET!,
+        apiKey: env.X_API_KEY!.trim(),
+        apiSecret: env.X_API_SECRET!.trim(),
+        accessToken: env.X_ACCESS_TOKEN!.trim(),
+        accessTokenSecret: env.X_ACCESS_TOKEN_SECRET!.trim(),
       }),
       ...(defaultHandle ? { defaultHandle } : {}),
       contextRoot:
         contextRootOverride ?? join(process.cwd(), "tmp", SERVICE_NAME),
     },
-  };
-}
-
-function providerEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  if (env.INTX_PROVIDER?.trim().toLowerCase() !== "vercel") return env;
-  return {
-    ...env,
-    INTX_PROVIDER: "openai-compatible",
-    OPENAI_API_KEY: env.AI_GATEWAY_API_KEY,
-    OPENAI_BASE_URL:
-      env.AI_GATEWAY_BASE_URL ?? "https://ai-gateway.vercel.sh/v1",
-    INTX_MODEL: env.INTX_MODEL ?? env.AI_GATEWAY_MODEL,
   };
 }
