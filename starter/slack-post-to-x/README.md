@@ -55,7 +55,7 @@ Events and Interactivity share one endpoint:
 https://<public-host>/api/tag/slack/webhook
 ```
 
-Mention `@interchange-social` with a drafting request. Approve to receive a
+Mention `@corbits-social` with a drafting request. Approve to receive a
 dry-run receipt in the same thread or Reject to cancel.
 
 ## Live publishing
