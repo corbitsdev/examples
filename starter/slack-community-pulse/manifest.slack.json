@@ -1,0 +1,37 @@
+{
+  "display_information": {
+    "name": "corbits-community-pulse",
+    "description": "Create a read-only weekly X community pulse report with Corbits",
+    "background_color": "#111111"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "corbits-community-pulse",
+      "always_online": true
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "app_mentions:read",
+        "chat:write",
+        "im:history",
+        "users:read",
+        "users:read.email"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://your-public-tunnel.example/api/tag/slack/webhook",
+      "bot_events": [
+        "app_mention",
+        "message.im"
+      ]
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "is_hosted": false,
+    "token_rotation_enabled": false
+  }
+}

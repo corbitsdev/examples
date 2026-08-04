@@ -1,0 +1,33 @@
+{
+  "name": "@corbits/example-slack-community-pulse",
+  "version": "0.1.0",
+  "license": "LGPL-2.1-only",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.3.14",
+  "workspaces": [
+    "../slack-agent/vendor/corbits-tag/packages/*"
+  ],
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "start": "bun run src/cli.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@chat-adapter/state-memory": "^4.34.0",
+    "@corbits/tag-slack": "workspace:*",
+    "@intx/agent": "0.2.2",
+    "@intx/storage-isogit": "0.2.2",
+    "@intx/workflow": "0.2.2",
+    "hono": "^4.12.31"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "typescript": "^5.9.3"
+  }
+}
