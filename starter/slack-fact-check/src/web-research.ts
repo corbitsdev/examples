@@ -16,26 +16,6 @@ type WebSnippet = {
   retrievedAt: string;
 };
 
-type ExaResponse = {
-  results?: Array<{
-    title?: unknown;
-    url?: unknown;
-    text?: unknown;
-    publishedDate?: unknown;
-  }>;
-};
-
-type FirecrawlResponse = {
-  data?: {
-    markdown?: unknown;
-    metadata?: {
-      title?: unknown;
-      publishedDate?: unknown;
-      publishedTime?: unknown;
-    };
-  };
-};
-
 function requestSignal(signal: AbortSignal): AbortSignal {
   return AbortSignal.any([signal, AbortSignal.timeout(FETCH_TIMEOUT_MS)]);
 }
@@ -43,6 +23,10 @@ function requestSignal(signal: AbortSignal): AbortSignal {
 async function responseMessage(response: Response): Promise<string> {
   const body = await response.text().catch(() => "");
   return `${String(response.status)} ${body || response.statusText}`.trim();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export async function searchWeb(
@@ -69,9 +53,15 @@ export async function searchWeb(
     throw new Error(`web_search failed: ${await responseMessage(response)}`);
   }
 
-  const data = (await response.json()) as ExaResponse;
+  const data: unknown = await response.json();
+  if (!isRecord(data)) throw new Error("web_search returned invalid data");
+  const results = data.results;
+  if (results !== undefined && !Array.isArray(results)) {
+    throw new Error("web_search returned invalid results");
+  }
   const retrievedAt = new Date().toISOString();
-  return (data.results ?? [])
+  return (results ?? [])
+    .filter(isRecord)
     .filter(
       (result) =>
         typeof result.title === "string" && typeof result.url === "string",
@@ -123,19 +113,26 @@ export async function fetchPage(
     throw new Error(`fetch_page failed: ${await responseMessage(response)}`);
   }
 
-  const data = (await response.json()) as FirecrawlResponse;
+  const data: unknown = await response.json();
+  if (!isRecord(data)) throw new Error("fetch_page returned invalid data");
+  const page = data.data;
+  if (page !== undefined && !isRecord(page)) {
+    throw new Error("fetch_page returned invalid page data");
+  }
+  const metadata = page?.metadata;
+  if (metadata !== undefined && !isRecord(metadata)) {
+    throw new Error("fetch_page returned invalid metadata");
+  }
   const publishedAt =
-    data.data?.metadata?.publishedDate ?? data.data?.metadata?.publishedTime;
+    metadata?.publishedDate ?? metadata?.publishedTime;
 
   return {
     title:
-      typeof data.data?.metadata?.title === "string"
-        ? data.data.metadata.title
-        : url,
+      typeof metadata?.title === "string" ? metadata.title : url,
     url,
     excerpt:
-      typeof data.data?.markdown === "string"
-        ? data.data.markdown.slice(0, EXCERPT_LENGTH)
+      typeof page?.markdown === "string"
+        ? page.markdown.slice(0, EXCERPT_LENGTH)
         : "",
     ...(typeof publishedAt === "string" && { publishedAt }),
     retrievedAt: new Date().toISOString(),
