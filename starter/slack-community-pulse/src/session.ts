@@ -80,7 +80,7 @@ function completedReport(result: RunResult): string {
   if (typeof report !== "string" || report.trim() === "") {
     throw new Error("Report step returned no text");
   }
-  return `${report.trim()}\n\n_Interchange run: ${result.runId}_`;
+  return `${report.trim()}\n\n_Corbits run: ${result.runId}_`;
 }
 
 function resolveUsername(request: string, fallback?: string): string {
