@@ -64,10 +64,10 @@ The Slack Events API URL is:
 POST https://your-public-host/api/tag/slack/webhook
 ```
 
-Mention the app or DM it:
+Mention the Corbits bot in a channel or send it a DM:
 
 ```text
-Generate the weekly community pulse for @corbitsdev
+@corbits-community-pulse generate the weekly community pulse for @corbitsdev
 ```
 
 Set `X_COMMUNITY_HANDLE` when prompts should be allowed to omit the handle.

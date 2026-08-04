@@ -9,7 +9,7 @@ actionable, then posts the final report in the same thread.
 Example mention:
 
 ```text
-@interchange-team-grill grill us on choosing our first customer segment and the proof our demo must show
+@corbits-team-grill grill us on choosing our first customer segment and the proof our demo must show
 ```
 
 Question 1 appears directly; there is no separate startup message.

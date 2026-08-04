@@ -36,7 +36,7 @@ export async function main(
   const sessions = createCommunityPulseSessions(resolved.config, stderr);
   const app = new Hono();
   const mounted = mountSlackTag(app, {
-    userName: "interchange-community-pulse",
+    userName: "corbits-community-pulse",
     state: createMemoryState(),
     slack: {
       botToken: resolved.config.botToken,

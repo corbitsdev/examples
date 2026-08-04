@@ -44,7 +44,7 @@ export async function main(
   const sessions = createTeamGrillSessions(resolved.config, stderr);
   const app = new Hono();
   const mounted = mountSlackTag(app, {
-    userName: "interchange-team-grill",
+    userName: "corbits-team-grill",
     state: createMemoryState(),
     slack: {
       botToken: resolved.config.botToken,

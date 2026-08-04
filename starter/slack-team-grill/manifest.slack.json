@@ -1,12 +1,12 @@
 {
   "display_information": {
-    "name": "interchange-team-grill",
-    "description": "Run adaptive Team Grill decision sessions in Slack",
+    "name": "corbits-team-grill",
+    "description": "Run adaptive Corbits Team Grill decision sessions in Slack",
     "background_color": "#000000"
   },
   "features": {
     "bot_user": {
-      "display_name": "interchange-team-grill",
+      "display_name": "corbits-team-grill",
       "always_online": true
     }
   },
