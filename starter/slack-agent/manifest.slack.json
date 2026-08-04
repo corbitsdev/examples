@@ -1,12 +1,12 @@
 {
   "display_information": {
-    "name": "interchange",
-    "description": "Ask an Interchange agent from Slack",
+    "name": "corbits",
+    "description": "Ask a Corbits agent from Slack",
     "background_color": "#000000"
   },
   "features": {
     "bot_user": {
-      "display_name": "interchange",
+      "display_name": "corbits",
       "always_online": true
     }
   },
