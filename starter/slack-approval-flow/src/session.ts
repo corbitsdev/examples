@@ -13,8 +13,6 @@ import {
 import { APPROVE_ACTION_ID, approvalCard, statusCard } from "./cards";
 import { SERVICE_NAME, type SlackWorkflowConfig } from "./config";
 
-const DRAFT_TIMEOUT_MS = 60_000;
-
 type PendingApproval = {
   run: WorkflowRun;
   thread: Thread;
@@ -22,31 +20,11 @@ type PendingApproval = {
   decision?: "approved" | "rejected";
 };
 
-type DraftObserver = {
-  ready(draft: string): void;
-  failed(error: unknown): void;
-};
-
-type ApprovalSessionOptions = {
-  draftTimeoutMs?: number;
-  startRun?: (request: string, draft: DraftObserver) => WorkflowRun;
-};
-
-type DraftOutcome =
-  | { type: "ready"; draft: string }
-  | { type: "failed"; error: unknown };
-
 export function createApprovalSessions(
   config: SlackWorkflowConfig,
   stderr: (text: string) => void,
-  opts: ApprovalSessionOptions = {},
 ) {
   const active = new Map<string, PendingApproval>();
-  const draftTimeoutMs = opts.draftTimeoutMs ?? DRAFT_TIMEOUT_MS;
-  const startRun =
-    opts.startRun ??
-    ((request: string, draft: DraftObserver) =>
-      startApprovalRun(config, stderr, request, draft));
 
   async function start(event: TagEvent, thread: Thread): Promise<void> {
     if (active.has(thread.id)) {
@@ -56,16 +34,20 @@ export function createApprovalSessions(
       return;
     }
 
-    const draftReady = Promise.withResolvers<DraftOutcome>();
-    const run = startRun(event.text, {
-      ready: (draft) => draftReady.resolve({ type: "ready", draft }),
-      failed: (error) => draftReady.resolve({ type: "failed", error }),
+    const draftReady = Promise.withResolvers<string>();
+    const invokeStep = createAgentStepInvoker({
+      source: config.source,
+      contextRoot: join(config.contextRoot, randomUUID()),
+      log: (line) => stderr(`${SERVICE_NAME}: ${line}\n`),
+      onStepDone: (stepId, output) => {
+        if (stepId === "draft") draftReady.resolve(output);
+      },
     });
-    const draftWait = waitForDraft(
-      draftReady.promise,
-      run.complete,
-      draftTimeoutMs,
-    );
+
+    const run = runLocal(defineApprovalFlow(config.source), {
+      triggerPayload: event.text,
+      invokeStep,
+    });
     const pending: PendingApproval = { run, thread };
     active.set(thread.id, pending);
 
@@ -74,12 +56,12 @@ export function createApprovalSessions(
         statusCard("Workflow started", `Run \`${run.runId}\` is drafting.`),
       );
     } catch (error) {
-      clear(pending);
+      active.delete(thread.id);
       await run.cancel("self", "failed to post workflow start").catch(() => {});
       throw error;
     }
 
-    void followRun(pending, draftWait);
+    void followRun(pending, draftReady.promise);
   }
 
   async function decide(event: ActionEvent): Promise<void> {
@@ -90,7 +72,6 @@ export function createApprovalSessions(
       pending.decision !== undefined ||
       event.value !== pending.run.runId
     ) {
-      await explainUnavailableAction(event);
       return;
     }
 
@@ -124,36 +105,20 @@ export function createApprovalSessions(
     }
   }
 
-  async function explainUnavailableAction(event: ActionEvent): Promise<void> {
-    if (event.thread === null) {
-      stderr(`${SERVICE_NAME}: ignored unavailable action without a thread\n`);
-      return;
-    }
-
-    try {
-      await event.thread.postEphemeral(
-        event.user,
-        "This approval is no longer active.",
-        { fallbackToDM: false },
-      );
-    } catch (error) {
-      stderr(
-        `${SERVICE_NAME}: failed to explain unavailable action: ${message(error)}\n`,
-      );
-    }
-  }
-
   async function followRun(
     pending: PendingApproval,
-    draftWait: Promise<DraftOutcome>,
+    draftReady: Promise<string>,
   ): Promise<void> {
     try {
-      const draft = await draftWait;
-      if (draft.type === "failed") throw draft.error;
-
-      pending.approvalMessage = await pending.thread.post(
-        approvalCard(draft.draft, pending.run.runId),
-      );
+      const draft = await Promise.race([
+        draftReady,
+        pending.run.complete.then(() => undefined),
+      ]);
+      if (draft !== undefined) {
+        pending.approvalMessage = await pending.thread.post(
+          approvalCard(draft, pending.run.runId),
+        );
+      }
 
       const result = await pending.run.complete;
       if (result.terminalStatus === "completed") {
@@ -167,93 +132,19 @@ export function createApprovalSessions(
       }
     } catch (error) {
       const detail = message(error);
-      clear(pending);
       stderr(`${SERVICE_NAME}: workflow failed: ${detail}\n`);
-      void pending.run.cancel("self", detail).catch((cancelError) => {
-        stderr(
-          `${SERVICE_NAME}: failed to cancel workflow: ${message(cancelError)}\n`,
-        );
-      });
-      try {
-        await pending.thread.post(statusCard("Workflow failed", detail));
-      } catch (postError) {
-        stderr(
-          `${SERVICE_NAME}: failed to post workflow failure: ${message(postError)}\n`,
-        );
-      }
+      await pending.run.cancel("self", detail).catch(() => {});
+      await pending.thread
+        .post(statusCard("Workflow failed", detail))
+        .catch(() => {});
     } finally {
-      clear(pending);
-    }
-  }
-
-  function clear(pending: PendingApproval): void {
-    if (active.get(pending.thread.id) === pending) {
-      active.delete(pending.thread.id);
+      if (active.get(pending.thread.id) === pending) {
+        active.delete(pending.thread.id);
+      }
     }
   }
 
   return { start, decide };
-}
-
-function startApprovalRun(
-  config: SlackWorkflowConfig,
-  stderr: (text: string) => void,
-  request: string,
-  draft: DraftObserver,
-): WorkflowRun {
-  const invokeAgentStep = createAgentStepInvoker({
-    source: config.source,
-    contextRoot: join(config.contextRoot, randomUUID()),
-    log: (line) => stderr(`${SERVICE_NAME}: ${line}\n`),
-    onStepDone: (stepId, output) => {
-      if (stepId === "draft") draft.ready(output);
-    },
-  });
-  const invokeStep: typeof invokeAgentStep = async (input) => {
-    try {
-      return await invokeAgentStep(input);
-    } catch (error) {
-      const stepId = input.authzContext.stepId ?? input.agent.id;
-      if (stepId === "draft") draft.failed(error);
-      throw error;
-    }
-  };
-
-  return runLocal(defineApprovalFlow(config.source), {
-    triggerPayload: request,
-    invokeStep,
-  });
-}
-
-function waitForDraft(
-  draft: Promise<DraftOutcome>,
-  complete: WorkflowRun["complete"],
-  timeoutMs: number,
-): Promise<DraftOutcome> {
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  const timedOut = new Promise<DraftOutcome>((resolve) => {
-    timeout = setTimeout(
-      () =>
-        resolve({
-          type: "failed",
-          error: new Error("Drafting did not finish within one minute."),
-        }),
-      timeoutMs,
-    );
-  });
-
-  return Promise.race<DraftOutcome>([
-    draft,
-    complete.then((result) => ({
-      type: "failed",
-      error: new Error(
-        `Workflow ${result.terminalStatus} before producing a draft.`,
-      ),
-    })),
-    timedOut,
-  ]).finally(() => {
-    if (timeout !== undefined) clearTimeout(timeout);
-  });
 }
 
 function message(error: unknown): string {

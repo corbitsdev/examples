@@ -1,12 +1,12 @@
 {
   "display_information": {
-    "name": "corbits-workflow",
-    "description": "Run Corbits approval workflows from Slack",
+    "name": "interchange-workflow",
+    "description": "Run Interchange approval workflows from Slack",
     "background_color": "#000000"
   },
   "features": {
     "bot_user": {
-      "display_name": "corbits-workflow",
+      "display_name": "interchange-workflow",
       "always_online": true
     }
   },
