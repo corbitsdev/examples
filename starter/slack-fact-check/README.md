@@ -70,7 +70,7 @@ POST /api/tag/slack/webhook
 Mention the bot in a channel or send it a DM:
 
 ```text
-@slack-fact-check Verify whether OpenAI was founded in 2015
+@corbits-fact-check Verify whether OpenAI was founded in 2015
 ```
 
 The bot posts a start card, runs `extract -> verify`, and posts the sourced

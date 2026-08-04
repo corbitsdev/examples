@@ -1,7 +1,7 @@
 {
   "display_information": {
-    "name": "slack-fact-check",
-    "description": "Verify claims with an Interchange workflow",
+    "name": "corbits-fact-check",
+    "description": "Verify claims with a Corbits workflow",
     "background_color": "#000000"
   },
   "features": {
@@ -11,7 +11,7 @@
       "messages_tab_read_only_enabled": false
     },
     "bot_user": {
-      "display_name": "slack-fact-check",
+      "display_name": "corbits-fact-check",
       "always_online": true
     }
   },

@@ -36,7 +36,7 @@ export async function main(
   const sessions = createFactCheckSessions(resolved.config, stderr);
   const app = new Hono();
   const mounted = mountSlackTag(app, {
-    userName: SERVICE_NAME,
+    userName: "corbits-fact-check",
     state: createMemoryState(),
     slack: {
       botToken: resolved.config.botToken,
