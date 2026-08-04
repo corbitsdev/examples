@@ -65,7 +65,7 @@ POST /api/tag/slack/webhook
 Mention the bot in a channel or send it a DM:
 
 ```text
-@interchange-workflow write a short launch note for the approval workflow demo
+@corbits-workflow write a short launch note for the approval workflow demo
 ```
 
 The bot posts the draft with Approve and Reject buttons. Approval resumes the

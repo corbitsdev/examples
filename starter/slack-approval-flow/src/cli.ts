@@ -44,7 +44,7 @@ export async function main(
   const approvals = createApprovalSessions(resolved.config, stderr);
   const app = new Hono();
   const mounted = mountSlackTag(app, {
-    userName: "interchange-workflow",
+    userName: "corbits-workflow",
     state: createMemoryState(),
     slack: {
       botToken: resolved.config.botToken,
