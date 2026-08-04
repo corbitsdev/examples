@@ -38,7 +38,7 @@ export async function main(
   const sessions = createPostSessions(resolved.config, stderr);
   const app = new Hono();
   const mounted = mountSlackTag(app, {
-    userName: "interchange-social",
+    userName: "corbits-social",
     state: createMemoryState(),
     slack: {
       botToken: resolved.config.botToken,
