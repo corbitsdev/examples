@@ -48,7 +48,7 @@ export function questionCard(
     children: [
       CardText(
         truncate(
-          `${safe(question.question)}\n${safe(question.context)}\n\n${options}\n\nInterchange run: ${safe(runId)}`,
+          `${safe(question.question)}\n${safe(question.context)}\n\n${options}\n\nCorbits run: ${safe(runId)}`,
           CARD_TEXT_LIMIT,
         ),
       ),
@@ -114,7 +114,7 @@ export function failedCard(runId: string, message: string): CardElement {
     children: [
       CardText(
         truncate(
-          `${safe(message)}\n\nInterchange run: ${safe(runId)}`,
+          `${safe(message)}\n\nCorbits run: ${safe(runId)}`,
           CARD_TEXT_LIMIT,
         ),
       ),
@@ -163,7 +163,7 @@ function reportBodyText(
       "Still open",
       openItems,
       "",
-      `Interchange run: ${safe(runId)}`,
+      `Corbits run: ${safe(runId)}`,
     ].join("\n"),
     CARD_TEXT_LIMIT,
   );
