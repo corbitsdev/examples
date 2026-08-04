@@ -1,12 +1,12 @@
 {
   "display_information": {
-    "name": "interchange-community-pulse",
-    "description": "Create a read-only weekly X community pulse report",
+    "name": "corbits-community-pulse",
+    "description": "Create a read-only weekly X community pulse report with Corbits",
     "background_color": "#111111"
   },
   "features": {
     "bot_user": {
-      "display_name": "interchange-community-pulse",
+      "display_name": "corbits-community-pulse",
       "always_online": true
     }
   },
