@@ -3,7 +3,7 @@ import { join } from "node:path";
 
 import type { TagEvent } from "@corbits/tag-slack";
 import { runLocal, type WorkflowRun } from "@intx/workflow";
-import type { CardElement } from "chat";
+import type { ActionEvent, SentMessage, Thread } from "chat";
 
 import { createPostActionResolver, createPostAuthorize } from "./actions";
 import {
@@ -23,55 +23,25 @@ import {
 } from "./workflow";
 import { requirePostReceipt } from "./x-client";
 
-type PostMessage = {
-  id: string;
-  edit(content: CardElement): Promise<PostMessage>;
-};
-
-type PostThread = {
-  id: string;
-  post(content: CardElement): Promise<PostMessage>;
-};
-
-export type PostActionEvent = {
-  actionId: string;
-  messageId: string;
-  threadId: string;
-  value?: string;
-  user: { userId: string };
-};
+const DRAFT_TIMEOUT_MS = 60_000;
 
 type PendingPost = {
   approvalId: string;
-  thread: PostThread;
+  thread: Thread;
   run?: WorkflowRun;
   validatedPost?: ValidatedPost;
-  approvalMessage?: PostMessage;
+  approvalMessage?: SentMessage;
   decision?: "approved" | "rejected";
   validationError?: string;
 };
 
-type CreateRun = (opts: {
-  prompt: string;
-  approvalId: string;
-  onValidated: (post: ValidatedPost) => void;
-  onValidationFailed: (error: unknown) => Promise<void>;
-}) => WorkflowRun;
-
 export function createPostSessions(
   config: PostToXConfig,
   stderr: (text: string) => void,
-  deps: {
-    createRun?: CreateRun;
-    newId?: () => string;
-    now?: () => Date;
-  } = {},
 ) {
   const active = new Map<string, PendingPost>();
-  const newId = deps.newId ?? randomUUID;
-  const now = deps.now ?? (() => new Date());
 
-  async function start(event: TagEvent, thread: PostThread): Promise<void> {
+  async function start(event: TagEvent, thread: Thread): Promise<void> {
     if (active.has(thread.id)) {
       await thread.post(
         statusCard("Workflow already running", "Use the approval card above."),
@@ -79,26 +49,23 @@ export function createPostSessions(
       return;
     }
 
-    const pending: PendingPost = { approvalId: newId(), thread };
+    const pending: PendingPost = { approvalId: randomUUID(), thread };
     active.set(thread.id, pending);
-    const validatedReady = deferred<ValidatedPost>();
+    const draftReady = Promise.withResolvers<ValidatedPost>();
     try {
-      const createRun = deps.createRun ?? defaultCreateRun;
-      const run = createRun({
+      const run = defaultCreateRun({
         prompt: event.text,
         approvalId: pending.approvalId,
-        onValidated: validatedReady.resolve,
-        onValidationFailed: async (error) => {
+        onValidated: draftReady.resolve,
+        onValidationFailed: (error) => {
           pending.validationError = message(error);
-          await pending.run?.cancel("self", pending.validationError);
+          draftReady.reject(error);
+          void pending.run?.cancel("self", pending.validationError);
         },
       });
       pending.run = run;
-      if (pending.validationError !== undefined) {
-        await run.cancel("self", pending.validationError);
-      }
       await thread.post(startedCard(run.runId));
-      void followRun(pending, validatedReady.promise);
+      void followRun(pending, waitForDraft(draftReady.promise, run.complete));
     } catch (error) {
       cleanup(pending);
       await pending.run?.cancel("self", message(error)).catch(() => {});
@@ -106,7 +73,7 @@ export function createPostSessions(
     }
   }
 
-  async function decide(event: PostActionEvent): Promise<void> {
+  async function decide(event: ActionEvent): Promise<void> {
     const pending = active.get(event.threadId);
     const actorId = event.user.userId.trim();
     if (
@@ -121,6 +88,7 @@ export function createPostSessions(
       (event.actionId !== APPROVE_ACTION_ID &&
         event.actionId !== REJECT_ACTION_ID)
     ) {
+      await explainUnavailableAction(event);
       return;
     }
 
@@ -132,7 +100,7 @@ export function createPostSessions(
           APPROVAL_SIGNAL,
           {
             approvedBy: actorId,
-            approvedAt: now().toISOString(),
+            approvedAt: new Date().toISOString(),
             threadId: event.threadId,
           },
           pending.approvalId,
@@ -162,7 +130,7 @@ export function createPostSessions(
     prompt: string;
     approvalId: string;
     onValidated: (post: ValidatedPost) => void;
-    onValidationFailed: (error: unknown) => Promise<void>;
+    onValidationFailed: (error: unknown) => void;
   }): WorkflowRun {
     const authorize = createPostAuthorize();
     return runLocal(definePostWorkflow(config.source), {
@@ -182,18 +150,35 @@ export function createPostSessions(
     });
   }
 
+  async function explainUnavailableAction(event: ActionEvent): Promise<void> {
+    if (event.thread === null) {
+      stderr(`${SERVICE_NAME}: ignored unavailable action without a thread\n`);
+      return;
+    }
+
+    try {
+      await event.thread.postEphemeral(
+        event.user,
+        "This approval is no longer active.",
+        { fallbackToDM: false },
+      );
+    } catch (error) {
+      stderr(
+        `${SERVICE_NAME}: failed to explain unavailable action: ${message(error)}\n`,
+      );
+    }
+  }
+
   async function followRun(
     pending: PendingPost,
-    validatedReady: Promise<ValidatedPost>,
+    draftWait: Promise<ValidatedPost>,
   ): Promise<void> {
     const run = pending.run;
     if (run === undefined) return;
     try {
-      const post = await Promise.race([
-        validatedReady,
-        run.complete.then(() => undefined),
-      ]);
-      if (post !== undefined && owns(pending)) {
+      const post = await draftWait;
+
+      if (owns(pending)) {
         pending.validatedPost = post;
         pending.approvalMessage = await pending.thread.post(
           approvalCard(post, pending.approvalId),
@@ -219,10 +204,18 @@ export function createPostSessions(
       cleanup(pending);
       const detail = message(error);
       stderr(`${SERVICE_NAME}: workflow failed: ${detail}\n`);
-      await run.cancel("self", detail).catch(() => {});
-      await pending.thread
-        .post(statusCard("Workflow failed", detail))
-        .catch(() => {});
+      void run.cancel("self", detail).catch((cancelError) => {
+        stderr(
+          `${SERVICE_NAME}: failed to cancel workflow: ${message(cancelError)}\n`,
+        );
+      });
+      try {
+        await pending.thread.post(statusCard("Workflow failed", detail));
+      } catch (postError) {
+        stderr(
+          `${SERVICE_NAME}: failed to post workflow failure: ${message(postError)}\n`,
+        );
+      }
     }
   }
 
@@ -238,15 +231,32 @@ export function createPostSessions(
   return { start, decide };
 }
 
-function deferred<T>(): {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-} {
-  let resolve = (_value: T): void => undefined;
-  const promise = new Promise<T>((innerResolve) => {
-    resolve = innerResolve;
+function waitForDraft(
+  draft: Promise<ValidatedPost>,
+  complete: WorkflowRun["complete"],
+): Promise<ValidatedPost> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(
+      () =>
+        reject(new Error("Drafting did not finish within one minute.")),
+      DRAFT_TIMEOUT_MS,
+    );
   });
-  return { promise, resolve };
+
+  return Promise.race([
+    draft,
+    complete.then((result) =>
+      Promise.reject(
+        new Error(
+          `Workflow ${result.terminalStatus} before producing a draft.`,
+        ),
+      ),
+    ),
+    timedOut,
+  ]).finally(() => {
+    if (timeout !== undefined) clearTimeout(timeout);
+  });
 }
 
 function message(error: unknown): string {
