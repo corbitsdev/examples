@@ -1,0 +1,38 @@
+{
+  "display_information": {
+    "name": "interchange-social",
+    "description": "Draft and approve X posts from Slack",
+    "background_color": "#000000"
+  },
+  "features": {
+    "bot_user": {
+      "display_name": "interchange-social",
+      "always_online": true
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "app_mentions:read",
+        "chat:write",
+        "im:history",
+        "users:read",
+        "users:read.email"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://your-public-tunnel.example/api/tag/slack/webhook",
+      "bot_events": ["app_mention", "message.im"]
+    },
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "https://your-public-tunnel.example/api/tag/slack/webhook"
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "is_hosted": false,
+    "token_rotation_enabled": false
+  }
+}
