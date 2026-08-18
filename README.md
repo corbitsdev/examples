@@ -32,8 +32,8 @@ example's directory, never at the repo root.
 Every example should include:
 
 - A `.gitignore`
-- A `package.json` with the license set to `MIT`, depending on published
-  packages from the registry
+- A `package.json` depending on published packages from the registry
+  (the repo is MIT-licensed; do not set a per-example `license` field)
 - A `README.md` with a short description and, if it requires environment variables, a `.env.example` file and instructions on how to set them up
 
 ## Read the Docs

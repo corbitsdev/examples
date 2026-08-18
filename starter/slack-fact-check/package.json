@@ -1,7 +1,6 @@
 {
   "name": "@corbits/example-slack-fact-check",
   "version": "0.1.0",
-  "license": "LGPL-2.1-only",
   "private": true,
   "type": "module",
   "packageManager": "bun@1.3.14",
