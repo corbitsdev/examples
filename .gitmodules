@@ -1,0 +1,3 @@
+[submodule "corbits-tag"]
+	path = starter/slack-agent/vendor/corbits-tag
+	url = https://github.com/corbitsdev/corbits-tag.git
