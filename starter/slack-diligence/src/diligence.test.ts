@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
 import { parseDiligenceBrief } from "./parser";
+import { renderDiligencePdf } from "./pdf";
 import { parseDiligenceInput } from "./request";
-import type { DiligenceRequest, FetchImpl } from "./types";
+import type { DiligenceBrief, DiligenceRequest, FetchImpl } from "./types";
 import { searchWeb } from "./web-research";
 
 const request: DiligenceRequest = {
@@ -118,5 +119,30 @@ describe("searchWeb timeouts", () => {
     await expect(
       searchWeb("acme", { exaApiKey: "k", fetchImpl }, AbortSignal.timeout(20)),
     ).rejects.toThrow();
+  });
+});
+
+describe("renderDiligencePdf", () => {
+  test("rejects when synchronous rendering throws", async () => {
+    const brief = {
+      dealName: "Acme",
+      company: "Acme",
+      website: "https://acme.example",
+      get asOf(): string {
+        throw new Error("sync render failure");
+      },
+      summary: "Limited evidence.",
+      rationale: "Needs review.",
+      verdict: "Watch",
+      claims: [],
+      sections: [],
+    } satisfies DiligenceBrief;
+    const timeout = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("render timed out")), 250);
+    });
+
+    await expect(
+      Promise.race([renderDiligencePdf(brief), timeout]),
+    ).rejects.toThrow("sync render failure");
   });
 });

@@ -29,123 +29,130 @@ export function renderDiligencePdf(
   const chunks: Buffer[] = [];
   document.on("data", (chunk: Buffer) => chunks.push(chunk));
 
-  const complete = new Promise<Buffer>((resolve, reject) => {
-    document.on("end", () => resolve(Buffer.concat(chunks)));
-    document.on("error", reject);
-  });
+  const render = () => {
+    const pageWidth = document.page.width;
+    const contentWidth = pageWidth - 108;
+    const paintPaper = () => {
+      document
+        .save()
+        .rect(0, 0, document.page.width, document.page.height)
+        .fill("#FFFFFF")
+        .restore();
+    };
+    paintPaper();
+    document.on("pageAdded", paintPaper);
 
-  const pageWidth = document.page.width;
-  const contentWidth = pageWidth - 108;
-  const paintPaper = () => {
+    // Exact Corbits mark vendored from the same brand source used by Scout.
+    document.rect(54, 46, 36, 36).fill(CREAM);
     document
       .save()
-      .rect(0, 0, document.page.width, document.page.height)
-      .fill("#FFFFFF")
+      .translate(54, 46)
+      .scale(36 / 500)
+      .fillColor(ORANGE)
+      .path(CORBITS_MARK_PATH)
+      .fill()
       .restore();
-  };
-  paintPaper();
-  document.on("pageAdded", paintPaper);
+    document
+      .fillColor(ORANGE)
+      .font("Helvetica-Bold")
+      .fontSize(15)
+      .text("corbits", 102, 49);
+    document
+      .fillColor(BLUE)
+      .font("Helvetica-Bold")
+      .fontSize(7.5)
+      .text("SOURCED DILIGENCE", 102, 68, { characterSpacing: 1.2 });
 
-  // Exact Corbits mark vendored from the same brand source used by Scout.
-  document.rect(54, 46, 36, 36).fill(CREAM);
-  document
-    .save()
-    .translate(54, 46)
-    .scale(36 / 500)
-    .fillColor(ORANGE)
-    .path(CORBITS_MARK_PATH)
-    .fill()
-    .restore();
-  document
-    .fillColor(ORANGE)
-    .font("Helvetica-Bold")
-    .fontSize(15)
-    .text("corbits", 102, 49);
-  document
-    .fillColor(BLUE)
-    .font("Helvetica-Bold")
-    .fontSize(7.5)
-    .text("SOURCED DILIGENCE", 102, 68, { characterSpacing: 1.2 });
+    document
+      .fillColor(INK)
+      .font("Helvetica-Bold")
+      .fontSize(28)
+      .text(brief.company, 54, 112, { width: contentWidth });
+    document
+      .fillColor(BLUE)
+      .font("Helvetica")
+      .fontSize(9.5)
+      .text(brief.website, { link: brief.website, underline: true });
+    document
+      .font("Helvetica-Bold")
+      .fontSize(9)
+      .text(`SOURCED DILIGENCE BRIEF  •  ${brief.asOf.slice(0, 10)}`);
 
-  document
-    .fillColor(INK)
-    .font("Helvetica-Bold")
-    .fontSize(28)
-    .text(brief.company, 54, 112, { width: contentWidth });
-  document
-    .fillColor(BLUE)
-    .font("Helvetica")
-    .fontSize(9.5)
-    .text(brief.website, { link: brief.website, underline: true });
-  document
-    .font("Helvetica-Bold")
-    .fontSize(9)
-    .text(`SOURCED DILIGENCE BRIEF  •  ${brief.asOf.slice(0, 10)}`);
+    const ruleY = document.y + 13;
+    document.rect(54, ruleY, contentWidth, 3).fill(ORANGE);
+    document.y = ruleY + 22;
 
-  const ruleY = document.y + 13;
-  document.rect(54, ruleY, contentWidth, 3).fill(ORANGE);
-  document.y = ruleY + 22;
-
-  const panelTextWidth = contentWidth - 32;
-  const summaryHeight = document
-    .font("Helvetica-Bold")
-    .fontSize(12)
-    .heightOfString(brief.summary, { width: panelTextWidth });
-  const rationaleHeight = document
-    .font("Helvetica")
-    .fontSize(10.5)
-    .heightOfString(brief.rationale, { width: panelTextWidth });
-  const panelHeight = 39 + summaryHeight + 10 + rationaleHeight + 24;
-  const panelY = document.y;
-  const summaryY = panelY + 39;
-  document.roundedRect(54, panelY, contentWidth, panelHeight, 4).fill(PANEL);
-  document.rect(54, panelY, 4, panelHeight).fill(ORANGE);
-  document
-    .fillColor(ORANGE)
-    .font("Helvetica-Bold")
-    .fontSize(9)
-    .text(brief.verdict.toUpperCase(), 70, panelY + 17, {
-      characterSpacing: 1.1,
-    });
-  document
-    .fillColor(INK)
-    .font("Helvetica-Bold")
-    .fontSize(12)
-    .text(brief.summary, 70, summaryY, { width: panelTextWidth });
-  document
-    .fillColor(MUTED)
-    .font("Helvetica")
-    .fontSize(10.5)
-    .text(brief.rationale, 70, summaryY + summaryHeight + 10, {
-      width: panelTextWidth,
-    });
-  document.y = panelY + panelHeight + 24;
-
-  for (const section of brief.sections) writeBriefSection(document, section);
-
-  if (brief.risks?.length) writeTextList(document, "Key risks", brief.risks);
-  if (brief.questions?.length) writeTextList(document, "Questions to resolve", brief.questions);
-  writeSources(document, orderedSources(brief));
-
-  const pages = document.bufferedPageRange();
-  for (let index = pages.start; index < pages.start + pages.count; index += 1) {
-    document.switchToPage(index);
-    document.page.margins.bottom = 54;
-    const footerY = document.page.height - 68;
-    document.moveTo(54, footerY - 9).lineTo(pageWidth - 54, footerY - 9).strokeColor(RULE).stroke();
+    const panelTextWidth = contentWidth - 32;
+    const summaryHeight = document
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .heightOfString(brief.summary, { width: panelTextWidth });
+    const rationaleHeight = document
+      .font("Helvetica")
+      .fontSize(10.5)
+      .heightOfString(brief.rationale, { width: panelTextWidth });
+    const panelHeight = 39 + summaryHeight + 10 + rationaleHeight + 24;
+    const panelY = document.y;
+    const summaryY = panelY + 39;
+    document.roundedRect(54, panelY, contentWidth, panelHeight, 4).fill(PANEL);
+    document.rect(54, panelY, 4, panelHeight).fill(ORANGE);
+    document
+      .fillColor(ORANGE)
+      .font("Helvetica-Bold")
+      .fontSize(9)
+      .text(brief.verdict.toUpperCase(), 70, panelY + 17, {
+        characterSpacing: 1.1,
+      });
+    document
+      .fillColor(INK)
+      .font("Helvetica-Bold")
+      .fontSize(12)
+      .text(brief.summary, 70, summaryY, { width: panelTextWidth });
     document
       .fillColor(MUTED)
       .font("Helvetica")
-      .fontSize(8)
-      .text("corbits  •  sourced diligence", 54, footerY, { lineBreak: false });
-    document.text(`${index + 1} / ${pages.count}`, pageWidth - 104, footerY, {
-      width: 50,
-      align: "right",
-      lineBreak: false,
-    });
-  }
+      .fontSize(10.5)
+      .text(brief.rationale, 70, summaryY + summaryHeight + 10, {
+        width: panelTextWidth,
+      });
+    document.y = panelY + panelHeight + 24;
 
-  document.end();
+    for (const section of brief.sections) writeBriefSection(document, section);
+
+    if (brief.risks?.length) writeTextList(document, "Key risks", brief.risks);
+    if (brief.questions?.length) writeTextList(document, "Questions to resolve", brief.questions);
+    writeSources(document, orderedSources(brief));
+
+    const pages = document.bufferedPageRange();
+    for (let index = pages.start; index < pages.start + pages.count; index += 1) {
+      document.switchToPage(index);
+      document.page.margins.bottom = 54;
+      const footerY = document.page.height - 68;
+      document.moveTo(54, footerY - 9).lineTo(pageWidth - 54, footerY - 9).strokeColor(RULE).stroke();
+      document
+        .fillColor(MUTED)
+        .font("Helvetica")
+        .fontSize(8)
+        .text("corbits  •  sourced diligence", 54, footerY, { lineBreak: false });
+      document.text(`${index + 1} / ${pages.count}`, pageWidth - 104, footerY, {
+        width: 50,
+        align: "right",
+        lineBreak: false,
+      });
+    }
+
+    document.end();
+  };
+
+  const complete = new Promise<Buffer>((resolve, reject) => {
+    document.on("end", () => resolve(Buffer.concat(chunks)));
+    document.on("error", reject);
+    try {
+      render();
+    } catch (cause) {
+      reject(cause);
+    }
+  });
   return complete;
 }
 
