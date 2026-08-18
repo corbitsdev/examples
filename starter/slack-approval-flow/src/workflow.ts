@@ -81,7 +81,7 @@ export function createAgentStepInvoker(opts: {
 }): StepInvoker {
   const { source, contextRoot, log, onStepDone } = opts;
 
-  return async ({ agent, input, authzContext }) => {
+  return async ({ agent, input, authzContext, signal }) => {
     const stepId = authzContext.stepId ?? agent.id;
     log?.(`step ${stepId}: ${agent.id} running`);
 
@@ -103,7 +103,7 @@ export function createAgentStepInvoker(opts: {
 
     try {
       const prompt = typeof input === "string" ? input : JSON.stringify(input);
-      const { reply } = await runtimeAgent.send(prompt);
+      const { reply } = await runtimeAgent.send(prompt, { signal });
       log?.(`step ${stepId}: done (${String(reply.length)} chars)`);
       onStepDone?.(stepId, reply);
       return { output: reply };
