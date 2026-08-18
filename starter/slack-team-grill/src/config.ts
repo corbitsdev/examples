@@ -2,9 +2,9 @@ import { join } from "node:path";
 
 import { resolveSource, type Source } from "./source";
 
-export const SERVICE_NAME = "slack-approval-flow";
+export const SERVICE_NAME = "slack-team-grill";
 
-export type SlackWorkflowConfig = {
+export type TeamGrillConfig = {
   port: number;
   signingSecret: string;
   botToken: string;
@@ -16,17 +16,14 @@ export function resolveConfig(
   env: NodeJS.ProcessEnv,
   contextRootOverride?: string,
 ):
-  | {
-      config: SlackWorkflowConfig;
-      error?: undefined;
-    }
+  | { config: TeamGrillConfig; error?: undefined }
   | { config?: undefined; error: string } {
-  const signingSecret = env.SLACK_SIGNING_SECRET;
+  const signingSecret = env.SLACK_SIGNING_SECRET?.trim();
   if (!signingSecret) {
     return { error: "SLACK_SIGNING_SECRET is not set.\n" };
   }
 
-  const botToken = env.SLACK_BOT_TOKEN;
+  const botToken = env.SLACK_BOT_TOKEN?.trim();
   if (!botToken) {
     return {
       error:

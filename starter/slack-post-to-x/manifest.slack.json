@@ -1,12 +1,12 @@
 {
   "display_information": {
-    "name": "corbits-workflow",
-    "description": "Run Corbits approval workflows from Slack",
+    "name": "corbits-social",
+    "description": "Draft and approve X posts with Corbits",
     "background_color": "#000000"
   },
   "features": {
     "bot_user": {
-      "display_name": "corbits-workflow",
+      "display_name": "corbits-social",
       "always_online": true
     }
   },
@@ -24,10 +24,7 @@
   "settings": {
     "event_subscriptions": {
       "request_url": "https://your-public-tunnel.example/api/tag/slack/webhook",
-      "bot_events": [
-        "app_mention",
-        "message.im"
-      ]
+      "bot_events": ["app_mention", "message.im"]
     },
     "interactivity": {
       "is_enabled": true,

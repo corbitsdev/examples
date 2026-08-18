@@ -87,8 +87,8 @@ function firstEnv(
   names: readonly string[],
 ): string | undefined {
   for (const name of names) {
-    const value = env[name]?.trim();
-    if (value) return value;
+    const value = env[name];
+    if (value !== undefined && value !== "") return value;
   }
   return undefined;
 }
@@ -99,13 +99,12 @@ function buildSource(
   apiKey: string,
 ): Source {
   const spec = PROVIDERS[alias];
-  const model =
-    env.INTX_MODEL?.trim() || env[spec.modelVar]?.trim() || spec.model;
+  const model = env.INTX_MODEL ?? env[spec.modelVar] ?? spec.model;
 
   // A custom OpenAI base URL means a non-OpenAI endpoint that speaks the
   // OpenAI wire format. Surface it as `openai-compatible` (same adapter)
   // so the intent is legible in logs and audits.
-  const customBaseURL = env[spec.baseURLVar]?.trim() || undefined;
+  const customBaseURL = env[spec.baseURLVar];
   const provider =
     alias === "openai" && customBaseURL !== undefined && customBaseURL !== ""
       ? "openai-compatible"
@@ -115,18 +114,11 @@ function buildSource(
   return { id: `${provider}:${model}`, provider, baseURL, apiKey, model };
 }
 
-/**
- * Resolve an inference `Source` from the environment, or return a
- * human-readable `error` explaining what to set. The caller prints the
- * error and exits non-zero — mirroring agent-quickstart's key check,
- * extended across providers.
- */
+/** Resolve an inference source from the environment. */
 export function resolveSource(env: NodeJS.ProcessEnv): ResolveResult {
   const requested = env.INTX_PROVIDER?.trim().toLowerCase();
 
   if (requested !== undefined && requested !== "") {
-    // `openai-compatible` is an alias for `openai` with a required
-    // custom base URL.
     const alias = requested === "openai-compatible" ? "openai" : requested;
     if (!isAlias(alias)) {
       return {
@@ -146,7 +138,7 @@ export function resolveSource(env: NodeJS.ProcessEnv): ResolveResult {
     }
     if (
       requested === "openai-compatible" &&
-      !env.OPENAI_BASE_URL?.trim()
+      (env.OPENAI_BASE_URL === undefined || env.OPENAI_BASE_URL === "")
     ) {
       return {
         error:
@@ -157,10 +149,10 @@ export function resolveSource(env: NodeJS.ProcessEnv): ResolveResult {
     return { source: buildSource(env, alias, apiKey) };
   }
 
-  // Auto-detect: first provider with a key present.
   for (const alias of DETECTION_ORDER) {
     const apiKey = firstEnv(env, PROVIDERS[alias].keyVars);
-    if (apiKey !== undefined) return { source: buildSource(env, alias, apiKey) };
+    if (apiKey !== undefined)
+      return { source: buildSource(env, alias, apiKey) };
   }
 
   return {

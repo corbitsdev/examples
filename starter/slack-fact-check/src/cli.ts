@@ -3,9 +3,8 @@ import { mountSlackTag } from "@corbits/tag-slack";
 import { Chat } from "chat";
 import { Hono } from "hono";
 
-import { APPROVAL_ACTION_IDS } from "./cards";
 import { resolveConfig, SERVICE_NAME } from "./config";
-import { createApprovalSessions } from "./session";
+import { createFactCheckSessions } from "./session";
 
 export type MainOptions = {
   stdout?: (text: string) => void;
@@ -24,14 +23,7 @@ export async function main(
     opts.stderr ?? ((text: string) => void process.stderr.write(text));
 
   if (argv.includes("--help") || argv.includes("-h")) {
-    stdout(
-      [
-        "usage: bun run start",
-        "",
-        "Start the Slack approval-flow example.",
-        "",
-      ].join("\n"),
-    );
+    stdout("usage: bun run start\n\nStart the Slack fact-check workflow.\n");
     return 0;
   }
 
@@ -41,31 +33,27 @@ export async function main(
     return 1;
   }
 
-  const approvals = createApprovalSessions(resolved.config, stderr);
+  const sessions = createFactCheckSessions(resolved.config, stderr);
   const app = new Hono();
   const mounted = mountSlackTag(app, {
-    userName: "corbits-workflow",
+    userName: "corbits-fact-check",
     state: createMemoryState(),
     slack: {
       botToken: resolved.config.botToken,
       signingSecret: resolved.config.signingSecret,
     },
     subscribeOnMention: false,
-    onTag: (event) => approvals.start(event, chat.thread(event.threadId)),
+    onTag: (event) => sessions.start(event, chat.thread(event.threadId)),
   });
   if (!(mounted.bot instanceof Chat)) {
     throw new Error("mountSlackTag did not return its Chat SDK bot");
   }
   const chat = mounted.bot;
-  chat.onAction([...APPROVAL_ACTION_IDS], approvals.decide);
 
   try {
-    Bun.serve({
-      port: resolved.config.port,
-      fetch: app.fetch,
-    });
-  } catch (error) {
-    stderr(`${errorMessage(error)}\n`);
+    Bun.serve({ port: resolved.config.port, fetch: app.fetch });
+  } catch (cause) {
+    stderr(`${cause instanceof Error ? cause.message : String(cause)}\n`);
     return 1;
   }
 
@@ -73,10 +61,6 @@ export async function main(
     `${SERVICE_NAME} listening on http://localhost:${resolved.config.port}${mounted.path}\n`,
   );
   return await new Promise<never>(() => undefined);
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 if (import.meta.main) {
