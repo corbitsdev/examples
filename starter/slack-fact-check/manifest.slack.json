@@ -1,0 +1,45 @@
+{
+  "display_information": {
+    "name": "corbits-fact-check",
+    "description": "Verify claims with a Corbits workflow",
+    "background_color": "#000000"
+  },
+  "features": {
+    "app_home": {
+      "home_tab_enabled": false,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": false
+    },
+    "bot_user": {
+      "display_name": "corbits-fact-check",
+      "always_online": true
+    }
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": [
+        "app_mentions:read",
+        "chat:write",
+        "im:history",
+        "users:read",
+        "users:read.email"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://your-public-tunnel.example/api/tag/slack/webhook",
+      "bot_events": [
+        "app_mention",
+        "message.im"
+      ]
+    },
+    "interactivity": {
+      "is_enabled": false
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "is_hosted": false,
+    "token_rotation_enabled": false
+  }
+}
