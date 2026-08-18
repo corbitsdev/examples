@@ -41,7 +41,7 @@ in Slack:
 bun run start
 ```
 
-Invite `@interchange` to a channel, then mention it. Each Slack thread gets its
+Invite `@corbits` to a channel, then mention it. Each Slack thread gets its
 own durable Interchange context under `tmp/slack-agent/context/`. Reinstall the
 Slack app whenever its OAuth scopes change.
 

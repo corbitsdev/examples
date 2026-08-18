@@ -14,7 +14,7 @@ import { resolveSource, type Source } from "./source";
 
 const EXAMPLE_NAME = "slack-agent";
 const DEMO_AGENT_PROMPT =
-  "You are interchange, a concise Corbits demo agent replying in Slack. Keep replies useful, direct, and easy to read in a thread.";
+  "You are Corbits, a concise demo agent replying in Slack. Keep replies useful, direct, and easy to read in a thread.";
 
 type Write = (text: string) => void;
 
@@ -78,7 +78,7 @@ export async function main(
   try {
     const app = new Hono();
     const { path } = mountSlackTag(app, {
-      userName: "interchange",
+      userName: "corbits",
       state: createMemoryState(),
       slack: {
         botToken: config.botToken,
@@ -91,7 +91,7 @@ export async function main(
 
     Bun.serve({ port: config.port, fetch: app.fetch });
     stdout(
-      `Interchange agent listening on http://localhost:${config.port}${path}\n`,
+      `Corbits agent listening on http://localhost:${config.port}${path}\n`,
     );
     return 0;
   } catch (error) {

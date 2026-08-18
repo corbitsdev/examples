@@ -1,9 +1,13 @@
 {
   "name": "@corbits/example-slack-approval-flow",
   "version": "0.1.0",
-  "license": "MIT",
+  "license": "LGPL-2.1-only",
   "private": true,
   "type": "module",
+  "packageManager": "bun@1.3.14",
+  "workspaces": [
+    "../slack-agent/vendor/corbits-tag/packages/*"
+  ],
   "exports": {
     ".": {
       "types": "./src/index.ts",
@@ -15,13 +19,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@chat-adapter/state-memory": "^4.34.0",
+    "@corbits/tag-slack": "workspace:*",
     "@intx/agent": "0.2.2",
     "@intx/storage-isogit": "0.2.2",
     "@intx/workflow": "0.2.2",
-    "@slack/bolt": "4.7.3",
-    "@slack/types": "2.21.1",
-    "@slack/web-api": "7.17.0",
-    "arktype": "^2.1.29"
+    "chat": "^4.34.0",
+    "hono": "^4.12.31"
   },
   "devDependencies": {
     "@types/bun": "^1.3.14",
