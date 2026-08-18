@@ -1,12 +1,17 @@
 {
   "display_information": {
-    "name": "corbits-workflow",
-    "description": "Run Corbits approval workflows from Slack",
+    "name": "corbits-fact-check",
+    "description": "Verify claims with a Corbits workflow",
     "background_color": "#000000"
   },
   "features": {
+    "app_home": {
+      "home_tab_enabled": false,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": false
+    },
     "bot_user": {
-      "display_name": "corbits-workflow",
+      "display_name": "corbits-fact-check",
       "always_online": true
     }
   },
@@ -30,8 +35,7 @@
       ]
     },
     "interactivity": {
-      "is_enabled": true,
-      "request_url": "https://your-public-tunnel.example/api/tag/slack/webhook"
+      "is_enabled": false
     },
     "org_deploy_enabled": false,
     "socket_mode_enabled": false,

@@ -1,0 +1,8 @@
+node_modules/
+tmp/
+bun.lock
+*.log
+.env
+.env.*
+!.env.example
+!.env.*.example

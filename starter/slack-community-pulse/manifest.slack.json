@@ -1,12 +1,12 @@
 {
   "display_information": {
-    "name": "corbits-workflow",
-    "description": "Run Corbits approval workflows from Slack",
-    "background_color": "#000000"
+    "name": "corbits-community-pulse",
+    "description": "Create a read-only weekly X community pulse report with Corbits",
+    "background_color": "#111111"
   },
   "features": {
     "bot_user": {
-      "display_name": "corbits-workflow",
+      "display_name": "corbits-community-pulse",
       "always_online": true
     }
   },
@@ -28,10 +28,6 @@
         "app_mention",
         "message.im"
       ]
-    },
-    "interactivity": {
-      "is_enabled": true,
-      "request_url": "https://your-public-tunnel.example/api/tag/slack/webhook"
     },
     "org_deploy_enabled": false,
     "socket_mode_enabled": false,

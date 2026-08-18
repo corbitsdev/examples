@@ -1,12 +1,12 @@
 {
   "display_information": {
-    "name": "corbits-workflow",
-    "description": "Run Corbits approval workflows from Slack",
+    "name": "corbits-team-grill",
+    "description": "Run adaptive Corbits Team Grill decision sessions in Slack",
     "background_color": "#000000"
   },
   "features": {
     "bot_user": {
-      "display_name": "corbits-workflow",
+      "display_name": "corbits-team-grill",
       "always_online": true
     }
   },
@@ -14,10 +14,7 @@
     "scopes": {
       "bot": [
         "app_mentions:read",
-        "chat:write",
-        "im:history",
-        "users:read",
-        "users:read.email"
+        "chat:write"
       ]
     }
   },
@@ -25,8 +22,7 @@
     "event_subscriptions": {
       "request_url": "https://your-public-tunnel.example/api/tag/slack/webhook",
       "bot_events": [
-        "app_mention",
-        "message.im"
+        "app_mention"
       ]
     },
     "interactivity": {

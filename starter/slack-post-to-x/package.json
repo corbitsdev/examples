@@ -1,5 +1,5 @@
 {
-  "name": "@corbits/example-slack-approval-flow",
+  "name": "@corbits/example-slack-post-to-x",
   "version": "0.1.0",
   "license": "LGPL-2.1-only",
   "private": true,

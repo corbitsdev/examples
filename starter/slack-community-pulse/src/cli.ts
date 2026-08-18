@@ -1,11 +1,9 @@
 import { createMemoryState } from "@chat-adapter/state-memory";
 import { mountSlackTag } from "@corbits/tag-slack";
-import { Chat } from "chat";
 import { Hono } from "hono";
 
-import { APPROVAL_ACTION_IDS } from "./cards";
 import { resolveConfig, SERVICE_NAME } from "./config";
-import { createApprovalSessions } from "./session";
+import { createCommunityPulseSessions } from "./session";
 
 export type MainOptions = {
   stdout?: (text: string) => void;
@@ -16,66 +14,51 @@ export type MainOptions = {
 export async function main(
   argv: string[],
   env: NodeJS.ProcessEnv,
-  opts: MainOptions = {},
+  options: MainOptions = {},
 ): Promise<number> {
   const stdout =
-    opts.stdout ?? ((text: string) => void process.stdout.write(text));
+    options.stdout ?? ((text: string) => void process.stdout.write(text));
   const stderr =
-    opts.stderr ?? ((text: string) => void process.stderr.write(text));
-
+    options.stderr ?? ((text: string) => void process.stderr.write(text));
   if (argv.includes("--help") || argv.includes("-h")) {
     stdout(
-      [
-        "usage: bun run start",
-        "",
-        "Start the Slack approval-flow example.",
-        "",
-      ].join("\n"),
+      "usage: bun run start\n\nStart the report-only Slack weekly community pulse workflow.\n",
     );
     return 0;
   }
 
-  const resolved = resolveConfig(env, opts.contextRoot);
+  const resolved = resolveConfig(env, options.contextRoot);
   if (resolved.error !== undefined) {
     stderr(resolved.error);
     return 1;
   }
 
-  const approvals = createApprovalSessions(resolved.config, stderr);
+  const sessions = createCommunityPulseSessions(resolved.config, stderr);
   const app = new Hono();
   const mounted = mountSlackTag(app, {
-    userName: "corbits-workflow",
+    userName: "corbits-community-pulse",
     state: createMemoryState(),
     slack: {
       botToken: resolved.config.botToken,
       signingSecret: resolved.config.signingSecret,
     },
     subscribeOnMention: false,
-    onTag: (event) => approvals.start(event, chat.thread(event.threadId)),
+    onTag: sessions.start,
   });
-  if (!(mounted.bot instanceof Chat)) {
-    throw new Error("mountSlackTag did not return its Chat SDK bot");
-  }
-  const chat = mounted.bot;
-  chat.onAction([...APPROVAL_ACTION_IDS], approvals.decide);
 
   try {
-    Bun.serve({
-      port: resolved.config.port,
-      fetch: app.fetch,
-    });
+    Bun.serve({ port: resolved.config.port, fetch: app.fetch });
   } catch (error) {
-    stderr(`${errorMessage(error)}\n`);
+    stderr(`${message(error)}\n`);
     return 1;
   }
-
   stdout(
     `${SERVICE_NAME} listening on http://localhost:${resolved.config.port}${mounted.path}\n`,
   );
   return await new Promise<never>(() => undefined);
 }
 
-function errorMessage(error: unknown): string {
+function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 

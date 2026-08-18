@@ -3,9 +3,9 @@ import { mountSlackTag } from "@corbits/tag-slack";
 import { Chat } from "chat";
 import { Hono } from "hono";
 
-import { APPROVAL_ACTION_IDS } from "./cards";
+import { SELECT_OPTION_ACTION_IDS } from "./cards";
 import { resolveConfig, SERVICE_NAME } from "./config";
-import { createApprovalSessions } from "./session";
+import { createTeamGrillSessions } from "./session";
 
 export type MainOptions = {
   stdout?: (text: string) => void;
@@ -28,7 +28,7 @@ export async function main(
       [
         "usage: bun run start",
         "",
-        "Start the Slack approval-flow example.",
+        "Start the Slack Team Grill example.",
         "",
       ].join("\n"),
     );
@@ -41,23 +41,24 @@ export async function main(
     return 1;
   }
 
-  const approvals = createApprovalSessions(resolved.config, stderr);
+  const sessions = createTeamGrillSessions(resolved.config, stderr);
   const app = new Hono();
   const mounted = mountSlackTag(app, {
-    userName: "corbits-workflow",
+    userName: "corbits-team-grill",
     state: createMemoryState(),
     slack: {
       botToken: resolved.config.botToken,
       signingSecret: resolved.config.signingSecret,
     },
     subscribeOnMention: false,
-    onTag: (event) => approvals.start(event, chat.thread(event.threadId)),
+    userLookup: undefined,
+    onTag: (event) => sessions.start(event, chat.thread(event.threadId)),
   });
   if (!(mounted.bot instanceof Chat)) {
     throw new Error("mountSlackTag did not return its Chat SDK bot");
   }
   const chat = mounted.bot;
-  chat.onAction([...APPROVAL_ACTION_IDS], approvals.decide);
+  chat.onAction([...SELECT_OPTION_ACTION_IDS], sessions.select);
 
   try {
     Bun.serve({

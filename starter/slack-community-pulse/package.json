@@ -1,5 +1,5 @@
 {
-  "name": "@corbits/example-slack-approval-flow",
+  "name": "@corbits/example-slack-community-pulse",
   "version": "0.1.0",
   "license": "LGPL-2.1-only",
   "private": true,
@@ -24,7 +24,6 @@
     "@intx/agent": "0.2.2",
     "@intx/storage-isogit": "0.2.2",
     "@intx/workflow": "0.2.2",
-    "chat": "^4.34.0",
     "hono": "^4.12.31"
   },
   "devDependencies": {
