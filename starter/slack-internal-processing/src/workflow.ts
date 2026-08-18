@@ -17,6 +17,7 @@ import {
 } from "@intx/workflow";
 
 import type { Source } from "./types";
+import { parseCallDigest, parseCallDigestSummary } from "./parser";
 
 export const WORKFLOW_ID = "workflow-internal-processing";
 
@@ -105,8 +106,17 @@ export function createInternalProcessingStepInvoker(opts: {
       opts.log?.(`step ${stepId}: running`);
       const prompt = typeof input === "string" ? input : JSON.stringify(input);
       const { reply } = await runtimeAgent.send(prompt, { signal });
+      if (stepId === "summarize") {
+        const parsed = parseCallDigestSummary(reply);
+        if (!parsed.ok) throw new Error(`${stepId}: ${parsed.error}`);
+        opts.log?.(`step ${stepId}: complete`);
+        return { output: parsed.summary };
+      }
+
+      const parsed = parseCallDigest(reply);
+      if (!parsed.ok) throw new Error(`${stepId}: ${parsed.error}`);
       opts.log?.(`step ${stepId}: complete`);
-      return { output: reply };
+      return { output: parsed.digest };
     } finally {
       await runtimeAgent.close();
     }

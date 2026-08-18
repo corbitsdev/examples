@@ -2,7 +2,12 @@ import type {
   CallDigestClaim,
   CallDigestCompany,
   CallDigestResult,
+  CallDigestSummary,
 } from "./types";
+
+export type ParseCallDigestSummaryResult =
+  | { ok: true; summary: CallDigestSummary }
+  | { ok: false; error: string };
 
 export type ParseCallDigestResult =
   | { ok: true; digest: CallDigestResult }
@@ -33,6 +38,26 @@ function parseJSON(text: string): unknown {
   } catch {
     return undefined;
   }
+}
+
+export function parseCallDigestSummary(
+  input: unknown,
+): ParseCallDigestSummaryResult {
+  const item = plainObject(typeof input === "string" ? parseJSON(input) : input);
+  if (item === undefined) {
+    return { ok: false, error: "call digest summary is not a JSON object" };
+  }
+
+  const summary = nonEmptyString(item.summary);
+  const discussionPoints = stringArray(item.discussionPoints);
+  if (summary === undefined || discussionPoints === undefined) {
+    return {
+      ok: false,
+      error: "call digest summary needs summary and discussion points",
+    };
+  }
+
+  return { ok: true, summary: { summary, discussionPoints } };
 }
 
 function stringArray(value: unknown): string[] | undefined {

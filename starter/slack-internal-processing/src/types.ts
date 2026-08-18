@@ -15,6 +15,11 @@ export type CallDigestInput = {
   transcript: string;
 };
 
+export type CallDigestSummary = {
+  summary: string;
+  discussionPoints: string[];
+};
+
 export type CallDigestCompany = {
   name: string;
   website?: string;

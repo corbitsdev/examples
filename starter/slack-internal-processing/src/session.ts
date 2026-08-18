@@ -35,7 +35,7 @@ export function createCallDigestSessions(
     deps.runWorkflow ??
     ((input: CallDigestInput) =>
       runLocal(defineInternalProcessing(config.source), {
-        triggerPayload: JSON.stringify(input),
+        triggerPayload: input,
         invokeStep: createInternalProcessingStepInvoker({
           source: config.source,
           contextRoot: join(config.contextRoot, randomUUID()),
