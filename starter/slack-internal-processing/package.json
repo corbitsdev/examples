@@ -1,13 +1,9 @@
 {
   "name": "@corbits/example-slack-internal-processing",
   "version": "0.1.0",
-  "license": "MIT",
   "private": true,
   "type": "module",
   "packageManager": "bun@1.3.14",
-  "workspaces": [
-    "../slack-agent/vendor/corbits-tag/packages/*"
-  ],
   "exports": {
     ".": {
       "types": "./src/index.ts",
@@ -21,11 +17,11 @@
   },
   "dependencies": {
     "@chat-adapter/state-memory": "^4.34.0",
-    "@corbits/tag-slack": "workspace:*",
     "@intx/agent": "0.2.2",
     "@intx/storage-isogit": "0.2.2",
     "@intx/workflow": "0.2.2",
     "chat": "^4.34.0",
+    "corbits-tag": "github:corbitsdev/corbits-tag",
     "hono": "^4.12.31"
   },
   "devDependencies": {

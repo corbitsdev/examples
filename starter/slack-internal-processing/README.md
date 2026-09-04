@@ -16,17 +16,15 @@ knowledge database, artifacts, fact checking, PDFs, or run-diligence actions.
 
 ## Setup
 
-1. Clone the repository with submodules and install this starter:
+1. Copy this directory, install, and create env:
 
-       git clone --recurse-submodules https://github.com/corbitsdev/examples.git
-       cd examples/starter/slack-internal-processing
+       cd slack-internal-processing
        bun install
        cp .env.example .env
 
-   In an existing checkout, initialize the shared Corbits Tag dependency from
-   the repository root:
-
-       git submodule update --init --recursive starter/slack-agent/vendor/corbits-tag
+   Corbits Tag comes from `github:corbitsdev/corbits-tag` (already listed in
+   package.json). `bun install` is enough; this starter does not use git
+   submodules.
 
 2. Expose port 3001 through an HTTPS tunnel.
 
@@ -56,8 +54,8 @@ knowledge database, artifacts, fact checking, PDFs, or run-diligence actions.
        acme-investor-call.txt
 
 3. The bot posts "Call digest started" and then the structured digest in that
-   same thread. Re-mention the app to run another digest after the thread
-   unsubscribes.
+   same thread. Re-mention the app to run another digest after the current one
+   finishes.
 
 ## Verify locally
 
@@ -75,4 +73,3 @@ knowledge database, artifacts, fact checking, PDFs, or run-diligence actions.
 | src/parser.ts | Strict validation of the extracted digest |
 | src/cards.ts | Status and final digest cards |
 | manifest.slack.json | Slack events and scopes |
-| ../slack-agent/vendor/corbits-tag | Shared pinned Corbits Tag workspace |

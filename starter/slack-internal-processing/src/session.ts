@@ -6,7 +6,12 @@ import {
   type RunResult,
   type WorkflowRun,
 } from "@intx/workflow";
-import type { Attachment, Thread } from "chat";
+import {
+  createSlackFileFetcher,
+  type SlackFileFetcher,
+  type TagAttachment,
+  type TagThread,
+} from "corbits-tag/slack";
 
 import { callDigestCards, statusCard } from "./cards";
 import { SERVICE_NAME, type SlackCallDigestConfig } from "./config";
@@ -19,9 +24,11 @@ import {
 
 type ActiveRun = Pick<WorkflowRun, "runId" | "complete" | "cancel">;
 const MAX_TRANSCRIPT_FILE_BYTES = 10 * 1024 * 1024;
+const MRKDWN_POST = { convertMarkdown: false } as const;
 
 export type CallDigestSessionDeps = {
   runWorkflow?: (input: CallDigestInput) => ActiveRun;
+  fetchFile?: SlackFileFetcher;
 };
 
 export function createCallDigestSessions(
@@ -31,6 +38,8 @@ export function createCallDigestSessions(
 ) {
   const awaitingTranscript = new Set<string>();
   const activeThreads = new Set<string>();
+  const fetchFile =
+    deps.fetchFile ?? createSlackFileFetcher(config.botToken);
   const runWorkflow =
     deps.runWorkflow ??
     ((input: CallDigestInput) =>
@@ -45,7 +54,7 @@ export function createCallDigestSessions(
 
   async function requestTranscript(
     threadId: string,
-    thread: Thread,
+    thread: TagThread,
     postIntake: () => Promise<void>,
   ): Promise<void> {
     if (activeThreads.has(threadId)) {
@@ -54,6 +63,7 @@ export function createCallDigestSessions(
           "Call digest already running",
           "Wait for the current digest before starting another in this thread.",
         ),
+        MRKDWN_POST,
       );
       return;
     }
@@ -63,6 +73,7 @@ export function createCallDigestSessions(
           "Waiting for transcript",
           "Upload the full call transcript as a `.txt` file in this thread.",
         ),
+        MRKDWN_POST,
       );
       return;
     }
@@ -78,8 +89,8 @@ export function createCallDigestSessions(
 
   async function acceptTranscriptFile(
     threadId: string,
-    attachments: Attachment[],
-    thread: Thread,
+    attachments: readonly TagAttachment[],
+    thread: TagThread,
   ): Promise<void> {
     if (activeThreads.has(threadId)) {
       await thread.post(
@@ -87,6 +98,7 @@ export function createCallDigestSessions(
           "Call digest already running",
           "Wait for the current digest before uploading another transcript.",
         ),
+        MRKDWN_POST,
       );
       return;
     }
@@ -99,17 +111,19 @@ export function createCallDigestSessions(
           "Transcript file needed",
           "Upload the full call transcript as a `.txt` file in this thread.",
         ),
+        MRKDWN_POST,
       );
       return;
     }
 
-    const input = await readTranscriptFile(attachment);
+    const input = await readTranscriptFile(attachment, fetchFile);
     if (input === undefined) {
       await thread.post(
         statusCard(
           "Could not read transcript file",
           "Upload a UTF-8 `.txt` transcript between 50 characters and 10 MB.",
         ),
+        MRKDWN_POST,
       );
       return;
     }
@@ -121,7 +135,7 @@ export function createCallDigestSessions(
 
   async function start(
     input: CallDigestInput,
-    thread: Thread,
+    thread: TagThread,
     threadId: string,
   ): Promise<void> {
     const run = runWorkflow(input);
@@ -132,6 +146,7 @@ export function createCallDigestSessions(
           "Call digest started",
           `Run ${run.runId} is summarizing the transcript, then extracting companies and claims.`,
         ),
+        MRKDWN_POST,
       );
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message : String(cause);
@@ -147,7 +162,7 @@ export function createCallDigestSessions(
 
   async function followRun(
     run: ActiveRun,
-    thread: Thread,
+    thread: TagThread,
     threadId: string,
   ): Promise<void> {
     try {
@@ -158,6 +173,7 @@ export function createCallDigestSessions(
             "Call digest ended",
             `Run status: ${result.terminalStatus}`,
           ),
+          MRKDWN_POST,
         );
         return;
       }
@@ -165,35 +181,32 @@ export function createCallDigestSessions(
       const parsed = parseCallDigest(result.outputs.extract);
       if (!parsed.ok) throw new Error(parsed.error);
       for (const card of callDigestCards(parsed.digest)) {
-        await thread.post(card);
+        await thread.post(card, MRKDWN_POST);
       }
     } catch (cause) {
       const detail = cause instanceof Error ? cause.message : String(cause);
       stderr(`${SERVICE_NAME}: workflow failed: ${detail}\n`);
       await run.cancel("self", detail).catch(() => {});
       await thread
-        .post(statusCard("Call digest failed", detail))
+        .post(statusCard("Call digest failed", detail), MRKDWN_POST)
         .catch(() => {});
     } finally {
       activeThreads.delete(threadId);
-      await thread.unsubscribe().catch(() => {});
     }
   }
 
   return { acceptTranscriptFile, requestTranscript };
 }
 
-function isTranscriptFile(attachment: Attachment): boolean {
-  return (
-    attachment.type === "file" &&
-    attachment.name?.toLowerCase().endsWith(".txt") === true
-  );
+function isTranscriptFile(attachment: TagAttachment): boolean {
+  return attachment.name.toLowerCase().endsWith(".txt");
 }
 
 async function readTranscriptFile(
-  attachment: Attachment,
+  attachment: TagAttachment,
+  fetchFile: SlackFileFetcher,
 ): Promise<CallDigestInput | undefined> {
-  if (attachment.fetchData === undefined) return undefined;
+  if (attachment.url === undefined) return undefined;
   if (
     attachment.size !== undefined &&
     attachment.size > MAX_TRANSCRIPT_FILE_BYTES
@@ -203,7 +216,9 @@ async function readTranscriptFile(
 
   let bytes: Buffer;
   try {
-    bytes = await attachment.fetchData();
+    const response = await fetchFile(attachment.url);
+    if (!response.ok) return undefined;
+    bytes = Buffer.from(await response.arrayBuffer());
   } catch {
     return undefined;
   }
@@ -212,7 +227,7 @@ async function readTranscriptFile(
   const transcript = bytes.toString("utf8").trim();
   if (transcript.length < 50) return undefined;
 
-  const filename = attachment.name ?? "Call transcript.txt";
+  const filename = attachment.name;
   const callTitle = filename.slice(0, -".txt".length).trim();
   return {
     callTitle: (callTitle === "" ? "Call transcript" : callTitle).slice(0, 120),

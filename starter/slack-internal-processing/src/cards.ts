@@ -1,32 +1,24 @@
-import { Card, CardText, type CardElement } from "chat";
-
 import type { CallDigestResult } from "./types";
 
 const MAX_CARD_TITLE_LENGTH = 150;
 const MAX_CARD_BODY_LENGTH = 2_700;
 
-export function callDigestIntakeCard(): CardElement {
-  return Card({
-    title: "Call digest ready",
-    children: [
-      CardText(
-        "*Next step*\nUpload the full call transcript as a `.txt` file in this thread. The bot will turn it into a concise digest, named companies, and follow-up claims.",
-      ),
-      CardText(
-        "_The filename becomes the call title. Long transcripts are welcome._",
-      ),
-    ],
-  });
+export function callDigestIntakeCard(): string {
+  return [
+    "*Call digest ready*",
+    "",
+    "*Next step*",
+    "Upload the full call transcript as a `.txt` file in this thread. The bot will turn it into a concise digest, named companies, and follow-up claims.",
+    "",
+    "_The filename becomes the call title. Long transcripts are welcome._",
+  ].join("\n");
 }
 
-export function statusCard(title: string, text: string): CardElement {
-  return Card({
-    title: clampTitle(title),
-    children: [CardText(escapeGeneratedMrkdwn(truncateBody(text)))],
-  });
+export function statusCard(title: string, text: string): string {
+  return `*${clampTitle(title)}*\n\n${escapeGeneratedMrkdwn(truncateBody(text))}`;
 }
 
-export function callDigestCards(digest: CallDigestResult): CardElement[] {
+export function callDigestCards(digest: CallDigestResult): string[] {
   return [
     ...sectionCards(`Call digest: ${escapeGeneratedMrkdwn(digest.callTitle)}`, "Summary", [
       escapeGeneratedMrkdwn(digest.summary),
@@ -81,24 +73,17 @@ function truncateBody(text: string): string {
     : text;
 }
 
-function sectionCards(
-  title: string,
-  heading: string,
-  items: string[],
-): CardElement[] {
+function sectionCards(title: string, heading: string, items: string[]): string[] {
   const chunks = chunkItems(items);
   return chunks.map((chunk, index) => {
     const page = chunks.length > 1 ? ` (${index + 1}/${chunks.length})` : "";
-    return Card({
-      title: clampTitle(`${title}${page}`),
-      children: [CardText(`*${heading}*\n${chunk}`)],
-    });
+    return `*${clampTitle(`${title}${page}`)}*\n\n*${heading}*\n${chunk}`;
   });
 }
 
 function escapeGeneratedMrkdwn(text: string): string {
-  // CardText parses GFM before the Slack adapter renders it. Escape model text
-  // at the leaf so intentional *bold* wrappers around company names still work.
+  // TagThread posts these strings as Slack mrkdwn. Escape model text at the
+  // leaf so intentional *bold* wrappers around company names still work.
   return text
     .replaceAll("\\", "\\\\")
     .replaceAll("~", "\\~")

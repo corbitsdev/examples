@@ -1,6 +1,5 @@
 import { createMemoryState } from "@chat-adapter/state-memory";
-import { mountSlackTag } from "@corbits/tag-slack";
-import { Chat, type Message } from "chat";
+import { mountSlackTag } from "corbits-tag/slack";
 import { Hono } from "hono";
 
 import { callDigestIntakeCard } from "./cards";
@@ -49,31 +48,21 @@ export async function main(
     thinkingIndicator: true,
     thinkingIndicatorText: "_Preparing call digest…_",
     subscribeOnMention: true,
-    onTag: async (event) => {
-      const thread = chat.thread(event.threadId);
+    onTag: async (event, thread) => {
       await sessions.requestTranscript(event.threadId, thread, async () => {
-        await thread.post(callDigestIntakeCard());
+        await thread.post(callDigestIntakeCard(), { convertMarkdown: false });
       });
     },
-  });
-  if (!(mounted.bot instanceof Chat)) {
-    throw new Error("mountSlackTag did not return its Chat SDK bot");
-  }
-  const chat = mounted.bot.registerSingleton();
-
-  chat.onSubscribedMessage(async (thread, message: Message) => {
-    if (message.author.isMe) return;
-    await sessions.acceptTranscriptFile(
-      message.threadId,
-      message.attachments,
-      thread,
-    );
+    onThreadMessage: async (event, thread) => {
+      await sessions.acceptTranscriptFile(
+        event.threadId,
+        event.attachments ?? [],
+        thread,
+      );
+    },
   });
 
   try {
-    // Initialize the adapter before accepting traffic so the first mention or
-    // subscribed thread reply does not wait on bot authentication.
-    await chat.initialize();
     Bun.serve({ port: resolved.config.port, fetch: app.fetch });
   } catch (cause) {
     stderr(`${cause instanceof Error ? cause.message : String(cause)}\n`);

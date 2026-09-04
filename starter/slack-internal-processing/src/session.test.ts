@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { RunResult } from "@intx/workflow";
-import type { Attachment, CardElement, SentMessage, Thread } from "chat";
+import type { TagAttachment, TagThread } from "corbits-tag/slack";
 
 import type { SlackCallDigestConfig } from "./config";
 import { createCallDigestSessions } from "./session";
@@ -21,15 +21,20 @@ const config: SlackCallDigestConfig = {
   contextRoot: "/tmp/slack-internal-processing-test",
 };
 
-function makeThread(id: string, posts: Array<string | CardElement>): Thread {
+const slackFileUrl = "https://files.slack.com/files-pri/T/F/transcript.txt";
+
+function makeThread(id: string, posts: string[]): TagThread {
   return {
     id,
-    post: async (content: string | CardElement) => {
+    post: async (content: string) => {
       posts.push(content);
-      return { id: `message-${String(posts.length)}` } as SentMessage;
     },
-    unsubscribe: async () => {},
-  } as Thread;
+    subscribe: async () => {},
+  };
+}
+
+function fileResponse(body: Buffer, status = 200): Response {
+  return new Response(body, { status });
 }
 
 function completedRun(outputs: Record<string, unknown>) {
@@ -45,7 +50,7 @@ function completedRun(outputs: Record<string, unknown>) {
 
 describe("createCallDigestSessions", () => {
   test("posts when mentioned again while awaiting a transcript", async () => {
-    const posts: Array<string | CardElement> = [];
+    const posts: string[] = [];
     const sessions = createCallDigestSessions(config, () => {});
     const thread = makeThread("t1", posts);
 
@@ -57,29 +62,34 @@ describe("createCallDigestSessions", () => {
     });
 
     expect(posts[0]).toBe("intake");
-    expect(JSON.stringify(posts[1])).toContain("Waiting for transcript");
+    expect(posts[1]).toContain("Waiting for transcript");
     expect(posts).not.toContain("should-not-appear");
   });
 
   test("prompts when the attachment is not a txt file", async () => {
-    const posts: Array<string | CardElement> = [];
+    const posts: string[] = [];
     const sessions = createCallDigestSessions(config, () => {});
     const thread = makeThread("t2", posts);
 
     await sessions.requestTranscript("t2", thread, async () => {});
     await sessions.acceptTranscriptFile(
       "t2",
-      [{ type: "file", name: "notes.pdf" } as Attachment],
+      [{ id: "F1", name: "notes.pdf", mimeType: "application/pdf" }],
       thread,
     );
 
-    expect(JSON.stringify(posts[0])).toContain("Transcript file needed");
+    expect(posts[0]).toContain("Transcript file needed");
   });
 
   test("rejects oversized files after download when size is omitted", async () => {
-    const posts: Array<string | CardElement> = [];
+    const posts: string[] = [];
     let fetched = false;
-    const sessions = createCallDigestSessions(config, () => {});
+    const sessions = createCallDigestSessions(config, () => {}, {
+      fetchFile: async () => {
+        fetched = true;
+        return fileResponse(Buffer.alloc(11 * 1024 * 1024, 0x61));
+      },
+    });
     const thread = makeThread("t3", posts);
 
     await sessions.requestTranscript("t3", thread, async () => {});
@@ -87,25 +97,24 @@ describe("createCallDigestSessions", () => {
       "t3",
       [
         {
-          type: "file",
+          id: "F2",
           name: "big.txt",
-          fetchData: async () => {
-            fetched = true;
-            return Buffer.alloc(11 * 1024 * 1024, 0x61);
-          },
-        } as Attachment,
+          mimeType: "text/plain",
+          url: slackFileUrl,
+        } satisfies TagAttachment,
       ],
       thread,
     );
 
     expect(fetched).toBe(true);
-    expect(JSON.stringify(posts[0])).toContain("Could not read transcript file");
+    expect(posts[0]).toContain("Could not read transcript file");
   });
 
   test("derives the call title from the filename", async () => {
     const inputs: CallDigestInput[] = [];
-    const posts: Array<string | CardElement> = [];
+    const posts: string[] = [];
     const sessions = createCallDigestSessions(config, () => {}, {
+      fetchFile: async () => fileResponse(Buffer.from("y".repeat(60))),
       runWorkflow: (input) => {
         inputs.push(input);
         return completedRun({
@@ -126,11 +135,12 @@ describe("createCallDigestSessions", () => {
       "t4",
       [
         {
-          type: "file",
+          id: "F3",
           name: "acme-investor-call.txt",
+          mimeType: "text/plain",
           size: 100,
-          fetchData: async () => Buffer.from("y".repeat(60)),
-        } as Attachment,
+          url: slackFileUrl,
+        } satisfies TagAttachment,
       ],
       thread,
     );
@@ -140,8 +150,10 @@ describe("createCallDigestSessions", () => {
   });
 
   test("rejects transcripts shorter than 50 characters", async () => {
-    const posts: Array<string | CardElement> = [];
-    const sessions = createCallDigestSessions(config, () => {});
+    const posts: string[] = [];
+    const sessions = createCallDigestSessions(config, () => {}, {
+      fetchFile: async () => fileResponse(Buffer.from("   too short   ")),
+    });
     const thread = makeThread("t5", posts);
 
     await sessions.requestTranscript("t5", thread, async () => {});
@@ -149,15 +161,16 @@ describe("createCallDigestSessions", () => {
       "t5",
       [
         {
-          type: "file",
+          id: "F4",
           name: "short.txt",
+          mimeType: "text/plain",
           size: 10,
-          fetchData: async () => Buffer.from("   too short   "),
-        } as Attachment,
+          url: slackFileUrl,
+        } satisfies TagAttachment,
       ],
       thread,
     );
 
-    expect(JSON.stringify(posts[0])).toContain("Could not read transcript file");
+    expect(posts[0]).toContain("Could not read transcript file");
   });
 });
