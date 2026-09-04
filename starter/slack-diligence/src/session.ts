@@ -1,10 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 
-import type { TagEvent } from "@corbits/tag-slack";
 import { runLocal, type WorkflowRun } from "@intx/workflow";
 import { WebClient } from "@slack/web-api";
-import type { Thread } from "chat";
+import type { TagEvent, TagThread } from "corbits-tag/slack";
 
 import { diligenceCard, statusCard } from "./cards";
 import { SERVICE_NAME, type SlackDiligenceConfig } from "./config";
@@ -18,10 +17,12 @@ import {
   defineDiligenceWorkflow,
 } from "./workflow";
 
+const MRKDWN_POST = { convertMarkdown: false } as const;
+
 type ActiveRun = {
   run: WorkflowRun;
   request: DiligenceRequest;
-  thread: Thread;
+  thread: TagThread;
 };
 
 export function createDiligenceSessions(
@@ -31,7 +32,7 @@ export function createDiligenceSessions(
   const active = new Map<string, ActiveRun>();
   const slack = new WebClient(config.botToken);
 
-  async function start(event: TagEvent, thread: Thread): Promise<void> {
+  async function start(event: TagEvent, thread: TagThread): Promise<void> {
     const input = parseDiligenceInput(event.text);
     if (input === undefined) {
       await thread.post(
@@ -39,6 +40,7 @@ export function createDiligenceSessions(
           "Company and website required",
           "Use: Company Name | https://company.example",
         ),
+        MRKDWN_POST,
       );
       return;
     }
@@ -48,6 +50,7 @@ export function createDiligenceSessions(
           "Diligence already running",
           "Wait for the current snapshot before starting another in this thread.",
         ),
+        MRKDWN_POST,
       );
       return;
     }
@@ -73,6 +76,7 @@ export function createDiligenceSessions(
           "Diligence started",
           `Run \`${run.runId}\` is researching and drafting the sourced brief.`,
         ),
+        MRKDWN_POST,
       );
     } catch (cause) {
       active.delete(thread.id);
@@ -92,6 +96,7 @@ export function createDiligenceSessions(
             "Diligence ended",
             `Run status: \`${result.terminalStatus}\``,
           ),
+          MRKDWN_POST,
         );
         return;
       }
@@ -121,6 +126,7 @@ export function createDiligenceSessions(
 
       await current.thread.post(
         diligenceCard(parsed.brief, { pdfAttached }),
+        MRKDWN_POST,
       );
       if (!pdfAttached) {
         await current.thread.post(
@@ -128,6 +134,7 @@ export function createDiligenceSessions(
             "PDF upload failed",
             "The Slack snapshot is still available.",
           ),
+          MRKDWN_POST,
         );
       }
     } catch (cause) {
@@ -135,7 +142,7 @@ export function createDiligenceSessions(
       stderr(`${SERVICE_NAME}: workflow failed: ${detail}\n`);
       await current.run.cancel("self", detail).catch(() => {});
       await current.thread
-        .post(statusCard("Diligence failed", detail))
+        .post(statusCard("Diligence failed", detail), MRKDWN_POST)
         .catch(() => {});
     } finally {
       if (active.get(current.thread.id) === current) {

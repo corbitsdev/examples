@@ -1,6 +1,5 @@
 import { createMemoryState } from "@chat-adapter/state-memory";
-import { mountSlackTag } from "@corbits/tag-slack";
-import { Chat } from "chat";
+import { mountSlackTag } from "corbits-tag/slack";
 import { Hono } from "hono";
 
 import { resolveConfig, SERVICE_NAME } from "./config";
@@ -42,13 +41,14 @@ export async function main(
       botToken: resolved.config.botToken,
       signingSecret: resolved.config.signingSecret,
     },
+    acknowledge: true,
+    thinkingIndicator: true,
+    thinkingIndicatorText: "_Preparing diligence snapshot…_",
     subscribeOnMention: false,
-    onTag: (event) => sessions.start(event, chat.thread(event.threadId)),
+    onTag: async (event, thread) => {
+      await sessions.start(event, thread);
+    },
   });
-  if (!(mounted.bot instanceof Chat)) {
-    throw new Error("mountSlackTag did not return its Chat SDK bot");
-  }
-  const chat = mounted.bot;
 
   try {
     Bun.serve({ port: resolved.config.port, fetch: app.fetch });
