@@ -21,8 +21,8 @@
     "@chat-adapter/state-memory": "^4.34.0",
     "@corbits/tag-core": "workspace:*",
     "@corbits/tag-slack": "workspace:*",
-    "@intx/agent": "0.2.2",
-    "@intx/storage-isogit": "0.2.2",
+    "@intx/agent": "0.5.0",
+    "@intx/storage-isogit": "0.5.0",
     "hono": "^4.12.31"
   },
   "devDependencies": {

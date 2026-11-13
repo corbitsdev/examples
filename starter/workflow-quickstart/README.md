@@ -21,7 +21,7 @@ first. [`src/cli.ts`](./src/cli.ts) is just the entry point.
 ## Setup
 
 This directory is self-contained. Every `@intx/*` package comes from
-npm at `0.2.2`; nothing else in this repository is involved. Copy the
+npm at `0.5.0`; nothing else in this repository is involved. Copy the
 directory anywhere and it still works.
 
 ```bash

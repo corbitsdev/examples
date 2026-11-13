@@ -59,6 +59,12 @@ export function createDiligenceSessions(
     const run = runLocal(
       defineDiligenceWorkflow(config.sources, config.webResearch),
       {
+        hasUpstreamSignalResolver: false,
+        authorize: async () => ({
+          effect: "allow",
+          matchingGrants: [],
+          resolvedBy: null,
+        }),
         triggerPayload: request,
         invokeStep: createDiligenceStepInvoker({
           sources: config.sources,
@@ -101,10 +107,7 @@ export function createDiligenceSessions(
         return;
       }
 
-      const parsed = parseDiligenceBrief(
-        result.outputs.draft,
-        current.request,
-      );
+      const parsed = parseDiligenceBrief(result.outputs.draft, current.request);
       if (!parsed.ok) {
         throw new Error(parsed.error);
       }
@@ -112,12 +115,7 @@ export function createDiligenceSessions(
       let pdfAttached = false;
       try {
         const pdf = await renderDiligencePdf(parsed.brief);
-        await uploadDiligencePdf(
-          slack,
-          current.thread.id,
-          parsed.brief,
-          pdf,
-        );
+        await uploadDiligencePdf(slack, current.thread.id, parsed.brief, pdf);
         pdfAttached = true;
       } catch (cause) {
         const detail = cause instanceof Error ? cause.message : String(cause);

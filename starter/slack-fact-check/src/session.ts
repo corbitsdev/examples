@@ -35,6 +35,12 @@ export function createFactCheckSessions(
     const run = runLocal(
       defineScoutFactCheck(config.source, config.webResearch),
       {
+        hasUpstreamSignalResolver: false,
+        authorize: async () => ({
+          effect: "allow",
+          matchingGrants: [],
+          resolvedBy: null,
+        }),
         triggerPayload: event.text,
         invokeStep: createFactCheckStepInvoker({
           source: config.source,

@@ -33,8 +33,7 @@ type ApprovalSessionOptions = {
 };
 
 type DraftOutcome =
-  | { type: "ready"; draft: string }
-  | { type: "failed"; error: unknown };
+  { type: "ready"; draft: string } | { type: "failed"; error: unknown };
 
 export function createApprovalSessions(
   config: SlackWorkflowConfig,
@@ -220,6 +219,12 @@ function startApprovalRun(
   };
 
   return runLocal(defineApprovalFlow(config.source), {
+    hasUpstreamSignalResolver: true,
+    authorize: async () => ({
+      effect: "allow",
+      matchingGrants: [],
+      resolvedBy: null,
+    }),
     triggerPayload: request,
     invokeStep,
   });

@@ -8,7 +8,36 @@ import {
   type BaseEnv,
 } from "@intx/agent";
 import { noopAuditStore, permissiveAuthorize } from "@intx/agent/testing";
-import { createIsogitStore } from "@intx/storage-isogit";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { createIsogitStorage } from "@intx/storage-isogit";
+
+// Bind storage to the host filesystem explicitly in Interchange 0.5.
+const { createIsogitStore } = createIsogitStorage({
+  fs,
+  path,
+  rename: fs.promises.rename,
+});
+
+// Keep secret material out of the inference source passed to the agent.
+function inferenceEnv(source: {
+  id: string;
+  provider: string;
+  baseURL: string;
+  model: string;
+  apiKey: string;
+}) {
+  const { apiKey, ...config } = source;
+  return {
+    sources: [{ ...config, credentialId: source.id }],
+    readCurrentMaterial: (credentialId: string) => {
+      if (credentialId !== source.id)
+        throw new Error(`Unknown credential: ${credentialId}`);
+      return { secret: apiKey };
+    },
+  };
+}
+
 import {
   defineWorkflow,
   step,
@@ -47,7 +76,9 @@ function agent(id: string, prompt: string, source: Source) {
     systemPrompt: prompt,
     tools: [],
     capabilities: [],
-    inference: { sources: [{ provider: source.provider, model: source.model }] },
+    inference: {
+      sources: [{ provider: source.provider, model: source.model }],
+    },
   });
 }
 
@@ -92,7 +123,7 @@ export function createInternalProcessingStepInvoker(opts: {
     mkdirSync(workdir, { recursive: true });
     const storage = await createIsogitStore(workdir);
     const env: BaseEnv = {
-      sources: [opts.source],
+      ...inferenceEnv(opts.source),
       defaultSource: opts.source.id,
       storage,
       workdir,
@@ -105,7 +136,10 @@ export function createInternalProcessingStepInvoker(opts: {
     try {
       opts.log?.(`step ${stepId}: running`);
       const prompt = typeof input === "string" ? input : JSON.stringify(input);
-      const { reply } = await runtimeAgent.send(prompt, { signal });
+      const result = await runtimeAgent.send(prompt, { signal });
+      if (result.type !== "reply")
+        throw new Error(`Agent suspended: ${result.correlationId}`);
+      const { reply } = result;
       if (stepId === "summarize") {
         const parsed = parseCallDigestSummary(reply);
         if (!parsed.ok) throw new Error(`${stepId}: ${parsed.error}`);

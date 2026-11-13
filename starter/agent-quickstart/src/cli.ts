@@ -3,7 +3,7 @@
 // Describe an agent, stand up the host pieces it needs, send one
 // prompt, print the reply, close. Nothing else.
 //
-// This targets the published @intx/agent 0.2.2 API, which splits an
+// This targets the published @intx/agent 0.5.0 API, which splits an
 // agent into two halves:
 //
 //   defineAgent(...)        the portable description — id, system
@@ -22,7 +22,36 @@ import {
   defineAgent,
   type AuthorizeFn,
 } from "@intx/agent";
-import { createIsogitStore } from "@intx/storage-isogit";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { createIsogitStorage } from "@intx/storage-isogit";
+
+// Bind storage to the host filesystem explicitly in Interchange 0.5.
+const { createIsogitStore } = createIsogitStorage({
+  fs,
+  path,
+  rename: fs.promises.rename,
+});
+
+// Keep secret material out of the inference source passed to the agent.
+function inferenceEnv(source: {
+  id: string;
+  provider: string;
+  baseURL: string;
+  model: string;
+  apiKey: string;
+}) {
+  const { apiKey, ...config } = source;
+  return {
+    sources: [{ ...config, credentialId: source.id }],
+    readCurrentMaterial: (credentialId: string) => {
+      if (credentialId !== source.id)
+        throw new Error(`Unknown credential: ${credentialId}`);
+      return { secret: apiKey };
+    },
+  };
+}
+
 
 const EXAMPLE_NAME = "agent-quickstart";
 const DEFAULT_MODEL = "claude-sonnet-4-6";
@@ -88,7 +117,7 @@ export async function main(
   const storage = await createIsogitStore(workdir);
 
   const agent = await createAgent(definition, {
-    sources: [source],
+    ...inferenceEnv(source),
     defaultSource: source.id,
     storage,
     workdir,
@@ -98,7 +127,10 @@ export async function main(
   });
 
   try {
-    const { reply } = await agent.send(prompt);
+    const result = await agent.send(prompt);
+    if (result.type !== "reply")
+      throw new Error(`Agent suspended: ${result.correlationId}`);
+    const { reply } = result;
     stdout(reply + "\n");
     return 0;
   } finally {

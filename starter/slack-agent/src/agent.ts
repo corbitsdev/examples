@@ -8,7 +8,36 @@ import {
   type AgentDefinition,
   type BaseEnv,
 } from "@intx/agent";
-import { createIsogitStore } from "@intx/storage-isogit";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { createIsogitStorage } from "@intx/storage-isogit";
+
+// Bind storage to the host filesystem explicitly in Interchange 0.5.
+const { createIsogitStore } = createIsogitStorage({
+  fs,
+  path,
+  rename: fs.promises.rename,
+});
+
+// Keep secret material out of the inference source passed to the agent.
+function inferenceEnv(source: {
+  id: string;
+  provider: string;
+  baseURL: string;
+  model: string;
+  apiKey: string;
+}) {
+  const { apiKey, ...config } = source;
+  return {
+    sources: [{ ...config, credentialId: source.id }],
+    readCurrentMaterial: (credentialId: string) => {
+      if (credentialId !== source.id)
+        throw new Error(`Unknown credential: ${credentialId}`);
+      return { secret: apiKey };
+    },
+  };
+}
+
 
 import type { Source } from "./source";
 
@@ -33,7 +62,7 @@ export async function runAgentTurn(
     mkdirSync(contextDir, { recursive: true });
     agentPromise = createIsogitStore(contextDir).then((storage) =>
       createAgent(definition, {
-        sources: [runtime.source],
+        ...inferenceEnv(runtime.source),
         defaultSource: runtime.source.id,
         storage,
         workdir: contextDir,
@@ -46,7 +75,10 @@ export async function runAgentTurn(
   }
 
   const agent = await agentPromise;
-  const { reply } = await agent.send(prompt);
+  const result = await agent.send(prompt);
+  if (result.type !== "reply")
+    throw new Error(`Agent suspended: ${result.correlationId}`);
+  const { reply } = result;
   return reply;
 }
 

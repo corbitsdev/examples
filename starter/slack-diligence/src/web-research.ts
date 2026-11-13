@@ -135,6 +135,7 @@ export function createWebResearchTool(config: WebResearchConfig) {
   return defineTool({
     id: "@corbits/example-slack-diligence/web-research",
     requires: [],
+    definitions: [{ name: "web_search" }, { name: "fetch_page" }],
     factory: (_env: BaseEnv) => ({
       definitions: [
         {

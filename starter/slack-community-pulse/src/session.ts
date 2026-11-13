@@ -43,6 +43,12 @@ export function createCommunityPulseSessions(
         previousPeriod: previous,
       };
       const workflow = runLocal(defineCommunityPulseWorkflow(config.source), {
+        hasUpstreamSignalResolver: false,
+        authorize: async () => ({
+          effect: "allow",
+          matchingGrants: [],
+          resolvedBy: null,
+        }),
         triggerPayload: target,
         invokeStep: createAgentStepInvoker({
           source: config.source,
@@ -57,7 +63,9 @@ export function createCommunityPulseSessions(
       const detail = message(error);
       stderr(`${SERVICE_NAME}: ${detail}\n`);
       await thread
-        .post(`:warning: *Weekly pulse failed*\n${escape(detail).slice(0, 1_000)}`)
+        .post(
+          `:warning: *Weekly pulse failed*\n${escape(detail).slice(0, 1_000)}`,
+        )
         .catch(() => {});
     }
   }

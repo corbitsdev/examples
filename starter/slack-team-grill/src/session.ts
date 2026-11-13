@@ -13,11 +13,7 @@ import type {
   GrillTurn,
 } from "./types";
 import type { TagEvent } from "@corbits/tag-slack";
-import {
-  runLocal,
-  type WorkflowEvent,
-  type WorkflowRun,
-} from "@intx/workflow";
+import { runLocal, type WorkflowEvent, type WorkflowRun } from "@intx/workflow";
 import type { ActionEvent, SentMessage, Thread } from "chat";
 
 import {
@@ -85,6 +81,7 @@ export function createTeamGrillSessions(
     ((input: TeamGrillRunInput, hooks: RunHooks): WorkflowRun => {
       const authorize = createLocalWorkflowAuthorize();
       return runLocal(defineTeamGrillRoundWorkflow(config.source), {
+        hasUpstreamSignalResolver: true,
         triggerPayload: input,
         authorize,
         invokeStep: createInvokeStep({
@@ -200,7 +197,7 @@ export function createTeamGrillSessions(
       const report =
         terminal.kind === "report"
           ? terminal.report
-          : terminal.completed.outputs.report ?? outputs.get("report");
+          : (terminal.completed.outputs.report ?? outputs.get("report"));
       if (!isReport(report)) throw new Error("Report step returned no report");
 
       await postFinalReport({
@@ -214,10 +211,7 @@ export function createTeamGrillSessions(
       finishSession(pending);
       if (terminal.kind === "report") {
         void run
-          .cancel(
-            "self",
-            "Final report delivered before the local run settled",
-          )
+          .cancel("self", "Final report delivered before the local run settled")
           .catch(() => undefined);
       }
     } catch (error) {
