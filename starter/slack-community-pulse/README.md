@@ -27,7 +27,7 @@ There is no `vendor/` directory in this example. It does not add another
 submodule, shared bridge, or root workspace change. Provider resolution,
 exports, workflow code, X tools/client, configuration, sessions, and Slack
 entrypoint are all isolated inside `starter/slack-community-pulse`. Interchange
-packages come from npm at `0.2.2`.
+packages come from npm at `0.5.0`.
 
 ## Setup
 

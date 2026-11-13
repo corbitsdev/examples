@@ -121,12 +121,10 @@ async function fetchPage(
   if (metadata !== undefined && !isRecord(metadata)) {
     throw new Error("fetch_page returned invalid metadata");
   }
-  const publishedAt =
-    metadata?.publishedDate ?? metadata?.publishedTime;
+  const publishedAt = metadata?.publishedDate ?? metadata?.publishedTime;
 
   return {
-    title:
-      typeof metadata?.title === "string" ? metadata.title : url,
+    title: typeof metadata?.title === "string" ? metadata.title : url,
     url,
     excerpt:
       typeof page?.markdown === "string"
@@ -153,6 +151,7 @@ export function createWebResearchTool(config: WebResearchConfig) {
   return defineTool({
     id: "@corbits/example-slack-fact-check/web-research",
     requires: [],
+    definitions: [{ name: "web_search" }, { name: "fetch_page" }],
     factory: (_env: BaseEnv) => ({
       definitions: [
         {

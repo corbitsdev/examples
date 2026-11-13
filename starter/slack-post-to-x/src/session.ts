@@ -166,6 +166,7 @@ export function createPostSessions(
   }): WorkflowRun {
     const authorize = createPostAuthorize();
     return runLocal(definePostWorkflow(config.source), {
+      hasUpstreamSignalResolver: true,
       triggerPayload: opts.prompt,
       authorize,
       invokeStep: createDraftStepInvoker({

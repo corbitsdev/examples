@@ -39,6 +39,7 @@ function createXTool(
   return defineTool<XToolEnv>({
     id: `@corbits/example-community-pulse/${kind}`,
     requires: ["target", "xClient"],
+    definitions: [{ name }],
     factory: (env) => {
       // One call keeps the evidence window fixed if the model tries to retry.
       let called = false;
@@ -59,7 +60,8 @@ function createXTool(
           if (call.name !== name) {
             return failure(call.id, `Unknown tool ${call.name}`);
           }
-          if (called) return failure(call.id, `${name} may be called only once`);
+          if (called)
+            return failure(call.id, `${name} may be called only once`);
           called = true;
           try {
             const collection =

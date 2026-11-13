@@ -6,7 +6,7 @@ prompt, print the reply, close.
 
 This example answers "what is the minimum amount of code I need to talk
 to an agent?" — read the body of [`src/cli.ts`](./src/cli.ts) and you
-have it. It targets the published `@intx/agent` **0.2.2** API.
+have it. It targets the published `@intx/agent` **0.5.0** API.
 
 This directory is self-contained. Copy it anywhere, run `bun install`,
 and it works — it depends on nothing else in this repository.
@@ -19,10 +19,12 @@ and it works — it depends on nothing else in this repository.
 - `createAgent(definition, env)` — the host half. `env` is where the
   concrete runtime pieces go:
   - `sources` / `defaultSource` — the `InferenceSource`
-    (`id`, `provider`, `baseURL`, `apiKey`, `model`) built from
-    `ANTHROPIC_API_KEY`, and the id of the one that starts active.
+    (`id`, `provider`, `baseURL`, `credentialId`, `model`) built from
+    the provider settings, and the id of the one that starts active.
+  - `readCurrentMaterial` — resolves the source’s credential ID to
+    `ANTHROPIC_API_KEY` at send time.
   - `storage` and `audit` — both satisfied by the single object
-    `createIsogitStore(dir)` returns, which implements `ContextStore`
+    `createIsogitStorage({ fs, path, rename }).createIsogitStore(dir)` returns, which implements `ContextStore`
     and `AuditStore` over one git repository.
   - `workdir` — the agent's singleton lock boundary. It **must** be the
     same directory passed to `createIsogitStore`.
@@ -31,8 +33,8 @@ and it works — it depends on nothing else in this repository.
     so that adding a tool later fails closed.
   - `directors` — `createDefaultDirectorRegistry()`, the built-ins-only
     registry.
-- One round trip through `agent.send(prompt)`, which returns the reply
-  text and the full turn that produced it.
+- One round trip through `agent.send(prompt)`, which returns a `reply` result
+  with text and its full turn, or a `suspended` result with a correlation ID.
 - Tearing the agent down with `agent.close()` so the per-directory lock
   is released cleanly.
 

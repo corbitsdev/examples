@@ -26,6 +26,7 @@ const optionIds: OptionId[] = ["a", "b", "c"];
 export function createTurnTools() {
   return defineTool<TurnEnv>({
     id: "@corbits/example-team-grill/turn",
+    definitions: [{ name: PRESENT_QUESTION }, { name: PRESENT_COMPLETE }],
     requires: ["round", "sink"],
     factory: (env) => ({
       definitions: [
@@ -55,12 +56,7 @@ export function createTurnTools() {
               },
               recommendedOptionId: { type: "string", enum: optionIds },
             },
-            required: [
-              "question",
-              "context",
-              "options",
-              "recommendedOptionId",
-            ],
+            required: ["question", "context", "options", "recommendedOptionId"],
             additionalProperties: false,
           },
         },
@@ -122,6 +118,7 @@ export function createTurnTools() {
 export function createReportTools() {
   return defineTool<ReportEnv>({
     id: "@corbits/example-team-grill/report",
+    definitions: [{ name: PRESENT_REPORT }],
     requires: ["sink"],
     factory: (env) => ({
       definitions: [
@@ -154,10 +151,7 @@ export function createReportTools() {
             return failure(call.id, `Unknown tool ${call.name}`);
           }
           const value: GrillReport = {
-            conclusion: requiredString(
-              call.arguments.conclusion,
-              "conclusion",
-            ),
+            conclusion: requiredString(call.arguments.conclusion, "conclusion"),
             openItems: requiredArray(call.arguments.openItems, "openItems").map(
               (item) => requiredString(item, "openItem"),
             ),
@@ -193,10 +187,7 @@ function requiredOptionId(value: unknown, name: string): OptionId {
   return value as OptionId;
 }
 
-function requiredRecord(
-  value: unknown,
-  name: string,
-): Record<string, unknown> {
+function requiredRecord(value: unknown, name: string): Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
     throw new Error(`${name} must be an object`);
   }

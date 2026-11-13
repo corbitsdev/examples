@@ -9,7 +9,36 @@ import {
   type BaseEnv,
 } from "@intx/agent";
 import { noopAuditStore } from "@intx/agent/testing";
-import { createIsogitStore } from "@intx/storage-isogit";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { createIsogitStorage } from "@intx/storage-isogit";
+
+// Bind storage to the host filesystem explicitly in Interchange 0.5.
+const { createIsogitStore } = createIsogitStorage({
+  fs,
+  path,
+  rename: fs.promises.rename,
+});
+
+// Keep secret material out of the inference source passed to the agent.
+function inferenceEnv(source: {
+  id: string;
+  provider: string;
+  baseURL: string;
+  model: string;
+  apiKey: string;
+}) {
+  const { apiKey, ...config } = source;
+  return {
+    sources: [{ ...config, credentialId: source.id }],
+    readCurrentMaterial: (credentialId: string) => {
+      if (credentialId !== source.id)
+        throw new Error(`Unknown credential: ${credentialId}`);
+      return { secret: apiKey };
+    },
+  };
+}
+
 import {
   awaitSignal,
   defineWorkflow,
@@ -147,7 +176,7 @@ export function createInvokeStep(options: {
     };
     const round = readRound(input);
     const env: AgentEnv = {
-      sources: [options.source],
+      ...inferenceEnv(options.source),
       defaultSource: options.source.id,
       storage,
       workdir,
@@ -183,7 +212,9 @@ export function createInvokeStep(options: {
       if (failure !== undefined) throw new Error(failure);
     }
     if (presentationCount !== 1 || output === undefined) {
-      throw new Error(`${agent.id} must call one presentation tool exactly once`);
+      throw new Error(
+        `${agent.id} must call one presentation tool exactly once`,
+      );
     }
     options.log(`step ${stepId}: done`);
     options.onStepDone(stepId, output);
@@ -230,7 +261,10 @@ async function runRuntimeAgent(
 ): Promise<{ reply: string }> {
   const agent = await createAgent(definition, env);
   try {
-    return await agent.send(prompt, { signal });
+    const result = await agent.send(prompt, { signal });
+    if (result.type !== "reply")
+      throw new Error(`Agent suspended: ${result.correlationId}`);
+    return result;
   } finally {
     await agent.close();
   }

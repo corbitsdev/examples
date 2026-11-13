@@ -30,8 +30,10 @@ export async function main(
   env: NodeJS.ProcessEnv,
   opts: MainOptions = {},
 ): Promise<number> {
-  const stdout = opts.stdout ?? ((text: string) => void process.stdout.write(text));
-  const stderr = opts.stderr ?? ((text: string) => void process.stderr.write(text));
+  const stdout =
+    opts.stdout ?? ((text: string) => void process.stdout.write(text));
+  const stderr =
+    opts.stderr ?? ((text: string) => void process.stderr.write(text));
 
   const topic = argv.join(" ").trim();
   if (topic === "") {
@@ -61,7 +63,16 @@ export async function main(
 
   // Progress goes to stderr so stdout stays the workflow's result.
   stderr(`workflow ${WORKFLOW_ID} · ${source.provider}/${source.model}\n`);
-  const run = runLocal(definition, { triggerPayload: topic, invokeStep });
+  const run = runLocal(definition, {
+    hasUpstreamSignalResolver: false,
+    authorize: async () => ({
+      effect: "allow",
+      matchingGrants: [],
+      resolvedBy: null,
+    }),
+    triggerPayload: topic,
+    invokeStep,
+  });
   const result = await run.complete;
   stderr(`workflow ${WORKFLOW_ID} · ${result.terminalStatus}\n\n`);
 

@@ -38,8 +38,10 @@ export async function main(
   env: NodeJS.ProcessEnv,
   opts: MainOptions = {},
 ): Promise<number> {
-  const stdout = opts.stdout ?? ((text: string) => void process.stdout.write(text));
-  const stderr = opts.stderr ?? ((text: string) => void process.stderr.write(text));
+  const stdout =
+    opts.stdout ?? ((text: string) => void process.stdout.write(text));
+  const stderr =
+    opts.stderr ?? ((text: string) => void process.stderr.write(text));
 
   if (argv.includes("--help") || argv.includes("-h")) {
     stdout(helpText());
@@ -57,7 +59,11 @@ export async function main(
     systemPrompt: DEMO_AGENT_PROMPT,
     tools: [],
     capabilities: [],
-    inference: { sources: [config.source] },
+    inference: {
+      sources: [
+        { provider: config.source.provider, model: config.source.model },
+      ],
+    },
   });
 
   const answer = async (event: TagEvent, thread: TagThread): Promise<void> => {
@@ -115,9 +121,7 @@ function helpText(): string {
 function resolveConfig(
   env: NodeJS.ProcessEnv,
   contextRootOverride?: string,
-):
-  | (SlackAgentConfig & { error?: undefined })
-  | { error: string } {
+): (SlackAgentConfig & { error?: undefined }) | { error: string } {
   const signingSecret = env.SLACK_SIGNING_SECRET?.trim();
   if (!signingSecret) return { error: "SLACK_SIGNING_SECRET is required.\n" };
 
@@ -139,7 +143,8 @@ function resolveConfig(
     port,
     source: sourceResult.source,
     contextRoot:
-      contextRootOverride ?? join(process.cwd(), "tmp", EXAMPLE_NAME, "context"),
+      contextRootOverride ??
+      join(process.cwd(), "tmp", EXAMPLE_NAME, "context"),
     authorize: denyAgentTools,
   };
 }

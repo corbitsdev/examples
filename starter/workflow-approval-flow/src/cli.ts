@@ -56,9 +56,7 @@ export async function main(
 
   const parsed = parseArgs(argv);
   if (parsed.prompt === "") {
-    stderr(
-      "usage: bun run start [--auto-approve | --reject] <request>\n",
-    );
+    stderr("usage: bun run start [--auto-approve | --reject] <request>\n");
     return 1;
   }
 
@@ -95,6 +93,7 @@ export async function main(
   ui.header(WORKFLOW_ID, `${source.provider}/${source.model}`);
   ui.stage(1, "Drafting");
   const run = runLocal(definition, {
+    hasUpstreamSignalResolver: true,
     triggerPayload: parsed.prompt,
     invokeStep,
     authorize,

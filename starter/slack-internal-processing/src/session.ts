@@ -1,11 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 
-import {
-  runLocal,
-  type RunResult,
-  type WorkflowRun,
-} from "@intx/workflow";
+import { runLocal, type RunResult, type WorkflowRun } from "@intx/workflow";
 import {
   createSlackFileFetcher,
   type SlackFileFetcher,
@@ -38,12 +34,17 @@ export function createCallDigestSessions(
 ) {
   const awaitingTranscript = new Set<string>();
   const activeThreads = new Set<string>();
-  const fetchFile =
-    deps.fetchFile ?? createSlackFileFetcher(config.botToken);
+  const fetchFile = deps.fetchFile ?? createSlackFileFetcher(config.botToken);
   const runWorkflow =
     deps.runWorkflow ??
     ((input: CallDigestInput) =>
       runLocal(defineInternalProcessing(config.source), {
+        hasUpstreamSignalResolver: false,
+        authorize: async () => ({
+          effect: "allow",
+          matchingGrants: [],
+          resolvedBy: null,
+        }),
         triggerPayload: input,
         invokeStep: createInternalProcessingStepInvoker({
           source: config.source,

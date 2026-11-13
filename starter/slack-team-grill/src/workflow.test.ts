@@ -2,10 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { runLocal, type StepInvoker } from "@intx/workflow";
 
 import type { GrillDecision, GrillQuestion } from "./types";
-import {
-  DECISION_SIGNAL,
-  defineTeamGrillRoundWorkflow,
-} from "./workflow";
+import { DECISION_SIGNAL, defineTeamGrillRoundWorkflow } from "./workflow";
 
 const source = {
   id: "test",
@@ -37,6 +34,12 @@ describe("team grill workflow", () => {
       return { output: question };
     };
     const run = runLocal(defineTeamGrillRoundWorkflow(source), {
+      hasUpstreamSignalResolver: true,
+      authorize: async () => ({
+        effect: "allow",
+        matchingGrants: [],
+        resolvedBy: null,
+      }),
       triggerPayload: { request: "Grill us", decisions: [], round: 7 },
       invokeStep,
     });
@@ -69,6 +72,12 @@ describe("team grill workflow", () => {
           };
     };
     const run = runLocal(defineTeamGrillRoundWorkflow(source), {
+      hasUpstreamSignalResolver: true,
+      authorize: async () => ({
+        effect: "allow",
+        matchingGrants: [],
+        resolvedBy: null,
+      }),
       triggerPayload: {
         request: "Grill us",
         decisions: [decision(1), decision(2), decision(3), decision(4)],

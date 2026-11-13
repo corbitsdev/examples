@@ -47,7 +47,10 @@ describe("defineInternalProcessing", () => {
       companies: [],
       claims: [],
     };
-    const invokeStep: StepInvoker = async ({ authzContext, input: stepInput }) => {
+    const invokeStep: StepInvoker = async ({
+      authzContext,
+      input: stepInput,
+    }) => {
       if (authzContext.stepId === "summarize") {
         return {
           output: {
@@ -67,6 +70,12 @@ describe("defineInternalProcessing", () => {
     };
 
     const result = await runLocal(defineInternalProcessing(source), {
+      hasUpstreamSignalResolver: false,
+      authorize: async () => ({
+        effect: "allow",
+        matchingGrants: [],
+        resolvedBy: null,
+      }),
       triggerPayload: input,
       invokeStep,
     }).complete;

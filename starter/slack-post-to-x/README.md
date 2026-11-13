@@ -14,7 +14,7 @@ validation. The publish action receives the validation action's workflow output,
 not text from Slack.
 
 This starter builds on the Corbits Tag dependency introduced by the Slack agent
-starter. It uses npm `@intx/*` packages at `0.2.2` and consumes the shared,
+starter. It uses npm `@intx/*` packages at `0.5.0` and consumes the shared,
 pinned Corbits Tag checkout at `../slack-agent/vendor/corbits-tag` as a Bun
 workspace. The stacked change does not register or clone a second submodule.
 

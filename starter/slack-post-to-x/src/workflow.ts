@@ -8,7 +8,36 @@ import {
   type BaseEnv,
 } from "@intx/agent";
 import { noopAuditStore } from "@intx/agent/testing";
-import { createIsogitStore } from "@intx/storage-isogit";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { createIsogitStorage } from "@intx/storage-isogit";
+
+// Bind storage to the host filesystem explicitly in Interchange 0.5.
+const { createIsogitStore } = createIsogitStorage({
+  fs,
+  path,
+  rename: fs.promises.rename,
+});
+
+// Keep secret material out of the inference source passed to the agent.
+function inferenceEnv(source: {
+  id: string;
+  provider: string;
+  baseURL: string;
+  model: string;
+  apiKey: string;
+}) {
+  const { apiKey, ...config } = source;
+  return {
+    sources: [{ ...config, credentialId: source.id }],
+    readCurrentMaterial: (credentialId: string) => {
+      if (credentialId !== source.id)
+        throw new Error(`Unknown credential: ${credentialId}`);
+      return { secret: apiKey };
+    },
+  };
+}
+
 import {
   action,
   awaitSignal,
@@ -93,7 +122,7 @@ export function createDraftStepInvoker(opts: {
     mkdirSync(workdir, { recursive: true });
     const storage = await createIsogitStore(workdir);
     const env: BaseEnv = {
-      sources: [opts.source],
+      ...inferenceEnv(opts.source),
       defaultSource: opts.source.id,
       storage,
       workdir,
@@ -105,7 +134,10 @@ export function createDraftStepInvoker(opts: {
     const runtimeAgent = await createAgent(agent, env);
     opts.log?.("step draft: post-drafter running");
     try {
-      const { reply } = await runtimeAgent.send(input, { signal });
+      const result = await runtimeAgent.send(input, { signal });
+      if (result.type !== "reply")
+        throw new Error(`Agent suspended: ${result.correlationId}`);
+      const { reply } = result;
       opts.log?.(`step draft: done (${String(reply.length)} chars)`);
       return { output: reply };
     } finally {
